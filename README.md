@@ -6,7 +6,7 @@ A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the ch
 
 - **Archives** those chats (reversible).
 - **Deletes** the same chats (straight from the main list or from the archive), only when you ask and after a confirmation in the panel (permanent).
-- Panel in **Italian or English**, your choice. More languages are added with a single file in the [`languages`](languages) folder (see "Adding a language").
+- Panel in **Italian, English or Spanish**, your choice. More languages are added with a single file in the [`languages`](languages) folder (see "Adding a language").
 - It only runs in your browser and does not use Telegram's internal APIs: it repeats the gestures you would do by hand (context menu, Archive, Select, Delete). It does not send your data to any server: the only connection is reading the language files from GitHub (see "Privacy").
 
 > **Status: version 0.4.0, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
@@ -42,7 +42,7 @@ The **Only "Deleted Account"** checkbox decides which chats the script touches. 
 
 **Log.** Below the buttons there is the message log: its text can be selected and copied, and the **Copy log** button copies the whole log to the clipboard (handy for pasting into a bug report). If you change language, the messages already in the log are rewritten in the new language too.
 
-**Language.** The drop-down at the top of the panel chooses the **language of the panel and of the messages**. The languages offered are the files in the repository's [`languages`](languages) folder. The choice is remembered by the browser; if you have not chosen anything, the browser language is used (if there is a file for that language, English otherwise). It only changes the script's own texts: Telegram's language is a separate matter (see "Known limitations").
+**Language.** The drop-down at the top of the panel chooses the **language of the panel and of the messages**. The languages offered are the files in the repository's [`languages`](languages) folder. The choice is remembered by the browser; if you have not chosen anything, the browser language is used (if there is a file for that language, English otherwise). It only changes the script's own texts: Telegram's language is a separate matter (see "Known limitations"). The included languages are Italian, English and Spanish; the Spanish translation was written by Claude and has not been reviewed by a native speaker: corrections are welcome as a pull request.
 
 While an operation is running the panel shrinks to a status line and Stop and lets clicks through, so it does not cover the list (useful on a phone, where the list takes the full width).
 
@@ -100,6 +100,7 @@ The script does not send your data, your chats or your contacts' names to anyone
 | Syntax (`node --check`) and language files check (`node tools/check-languages.js`) | ok |
 | Logic on a mock page (invented chats, headless Chrome): dry run, archiving, group/different preview left alone, only "Deleted Account", selective deletion with confirmation from archive and from main list, cancel, Stop, compact panel, log always on the latest lines, active tab, message with zero chats, per-run limit, stop after 3 errors, refusal with the archive open, panel in English | 5 times out of 5 for each of the 15 scenarios; in a narrow window (420 px, like a phone) 3 times out of 3 for 2 scenarios |
 | Languages, on a mock page with a simulated network: list of the files in the folder (invalid names and folders ignored), loading the file, missing strings in English, 24-hour cache (fresh and stale), no network, GitHub rate limit, bad or malicious files (broken JSON, too big, HTML, odd placeholders), browser language (English and Italian), remembered choice, log rewritten in the new language, built-in English equal to `languages/en.json` | 5 times out of 5 for each of the 10 scenarios. Also checked that the tests fail when the defect is put back (file check switched off) |
+| Panel in Spanish (`languages/es.json`, 71 keys): texts, Dry run, Archive, Delete… and a log rewritten in another language, on a mock page | 5 times out of 5, with an English and an Italian browser. The quality of the translation has not been checked by a native speaker |
 | **Copy log** button (with and without the clipboard API, with failure) and the style that makes the log selectable even when the page disables selection | 5 times out of 5 for 2 scenarios. Selecting with a finger on a phone is not verified |
 | Reading `raw.githubusercontent.com` and `api.github.com` from the Telegram Web page (no CSP or CORS block), in Claude's built-in browser | 1 time, before the `languages` folder was created: answer 200 for `LICENSE` and for the file list |
 | Archiving on the real Telegram Web K (with equivalent code run from the console) | 100 of 100 and 38 of 38 |
