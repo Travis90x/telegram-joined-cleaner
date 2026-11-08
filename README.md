@@ -1,78 +1,84 @@
+🇮🇹 [Leggi il README in italiano](README_ITA.md)
+
 # Telegram Joined Cleaner
 
-Userscript per [Tampermonkey](https://www.tampermonkey.net/) che ripulisce la lista chat di **Telegram Web K** (`https://web.telegram.org/k/`) dalle chat create quando un contatto si iscrive a Telegram, cioè quelle che contengono solo l'avviso "*nome* joined Telegram".
+A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the chat list of **Telegram Web K** (`https://web.telegram.org/k/`): it removes the chats Telegram creates when a contact joins Telegram, i.e. the ones that only contain the "*name* joined Telegram" notice.
 
-- **Archivia** quelle chat (reversibile).
-- **Cancella** le stesse chat (direttamente dalla lista principale o dall'archivio), solo se lo chiedi e dopo una conferma nel pannello (definitivo).
-- Funziona solo nel browser, non invia niente a nessun server e non usa le API interne di Telegram: ripete i gesti che faresti a mano (menu contestuale, Archive, Select, Delete).
+- **Archives** those chats (reversible).
+- **Deletes** the same chats (straight from the main list or from the archive), only when you ask and after a confirmation in the panel (permanent).
+- Panel in **Italian or English**, your choice.
+- It only runs in your browser, sends nothing to any server and does not use Telegram's internal APIs: it repeats the gestures you would do by hand (context menu, Archive, Select, Delete).
 
-> **Stato: versione 0.2.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
+> **Status: version 0.3.0, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
 
-## Installazione
+## Installation
 
-1. Installa Tampermonkey (Chrome, Edge, Firefox).
-2. Su Chrome 138 o più recente: nella pagina dei dettagli dell'estensione Tampermonkey attiva **Allow User Scripts** (o la Modalità sviluppatore). Su Firefox non serve.
-3. Apri il file [`telegram-joined-cleaner.user.js`](telegram-joined-cleaner.user.js) in formato "Raw" e conferma l'installazione di Tampermonkey.
-4. Apri `https://web.telegram.org/k/`: in basso a destra compare il pulsante 🧹.
+1. Install Tampermonkey (Chrome, Edge, Firefox).
+2. On Chrome 138 or newer: on the Tampermonkey extension details page turn on **Allow User Scripts** (or Developer mode). Not needed on Firefox.
+3. Open [`telegram-joined-cleaner.user.js`](telegram-joined-cleaner.user.js) in "Raw" view (or the address `https://raw.githubusercontent.com/Travis90x/telegram-joined-cleaner/main/telegram-joined-cleaner.user.js`) and confirm the installation in Tampermonkey. If the script is already installed, Tampermonkey offers the update.
+4. Open `https://web.telegram.org/k/`: a 🧹 button appears at the bottom right.
 
-## Uso
+## Usage
 
-Il pannello ha quattro pulsanti:
+The panel has four buttons:
 
-| Pulsante | Cosa fa |
+| Button | What it does |
 | --- | --- |
-| **Prova** | Solo lettura: scorre la lista aperta e dice quante chat sono "solo joined". Non modifica niente. Da fare sempre per primo. |
-| **Archivia** | Archivia le chat "solo joined" della lista principale, una alla volta, verificando ogni azione. |
-| **Cancella…** | Cancella direttamente le chat "solo joined" della lista aperta: la lista principale oppure, se l'hai aperto (menu ☰ > *Archived Chats*), l'archivio. Conta le chat, chiede conferma nel pannello e poi le cancella a gruppi. **Definitivo.** |
-| **Stop** | Ferma l'operazione in corso. |
+| **Dry run** | Read-only: scrolls through the open list and tells you how many chats are "joined-only". It changes nothing. Always do this first. |
+| **Archive** | Archives the "joined-only" chats of the main list, one at a time, checking every action. |
+| **Delete…** | Deletes the "joined-only" chats straight from the open list: the main list or, if you opened it (menu ☰ > *Archived Chats*), the archive. It counts the chats, asks for confirmation in the panel and then deletes them in groups. **Permanent.** |
+| **Stop** | Stops the running operation. |
 
-La casella **Solo "Deleted Account"** decide quali chat tocca lo script. Spenta (default): solo le chat con un nome. Accesa: solo quelle di account eliminati. Per trattarle tutte, esegui l'operazione due volte, una per tipo.
+The **Only "Deleted Account"** checkbox decides which chats the script touches. Off (default): only chats with a name. On: only chats of deleted accounts. To handle both kinds, run the operation twice, once for each.
 
-Mentre un'operazione è in corso il pannello si riduce a stato e Stop e lascia passare i clic, così non copre la lista (utile sul telefono, dove la lista occupa tutta la larghezza).
+The drop-down at the top of the panel chooses the **language of the panel and of the messages** (Italiano or English). The choice is remembered by the browser; if you have not chosen anything, the browser language is used (Italian if the browser is Italian, English otherwise). It only changes the script's own texts: Telegram's language is a separate matter (see "Known limitations").
 
-## Come riconosce una chat "vuota"
+While an operation is running the panel shrinks to a status line and Stop and lets clicks through, so it does not cover the list (useful on a phone, where the list takes the full width).
 
-Una chat viene toccata solo se **tutte** queste condizioni sono vere:
+## How it recognizes an "empty" chat
 
-- è una chat con un utente (id numerico positivo, non un gruppo o un canale);
-- il titolo non è vuoto;
-- l'anteprima dell'ultimo messaggio è esattamente `<titolo> joined Telegram`.
+A chat is touched only if **all** of these are true:
 
-Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non vengono aperte una per una. Si parte dall'ipotesi (non verificata) che una chat creata da un'iscrizione non abbia messaggi precedenti.
+- it is a chat with a user (positive numeric id, not a group or a channel);
+- the title is not empty;
+- the preview of the last message is exactly `<title> joined Telegram`.
 
-## Sicurezza
+The check looks **only at the preview of the last message**: chats are not opened one by one. It relies on an assumption (not verified) that a chat created by a join has no earlier messages.
 
-- Archiviare è reversibile; cancellare no. La cancellazione parte solo dopo che hai premuto il pulsante di conferma nel pannello, e Telegram mostra comunque la sua finestra "Delete N chats": lo script la conferma solo se il numero coincide con le chat selezionate.
-- Prima di cancellare controlla che siano selezionate **esattamente** le chat previste, e nessun'altra. Altrimenti si ferma.
-- Le chat che non sono "solo joined" non vengono mai toccate, né nella lista principale né nell'archivio.
-- Il ritmo è prudente (circa 1-2 secondi per chat), si ferma dopo 3 errori di fila e archivia al massimo 80 chat per giro: dopo circa 100 archiviazioni di fila Telegram a volte smette di applicarle senza dare errori. Se compare il messaggio del limite, aspetta qualche minuto e rilancia.
-- Non simula il tasto Esc (su Telegram Web K apre la ricerca globale) e non nasconde mai le finestre di conferma.
+## Safety
 
-## Limiti noti
+- Archiving is reversible; deleting is not. Deletion starts only after you press the confirmation button in the panel, and Telegram still shows its own "Delete N chats" dialog: the script confirms it only if the number matches the selected chats.
+- Before deleting it checks that **exactly** the planned chats are selected, and no others. Otherwise it stops.
+- Chats that are not "joined-only" are never touched, neither in the main list nor in the archive.
+- The pace is cautious (about 1-2 seconds per chat), it stops after 3 errors in a row and archives at most 80 chats per run: after about 100 archivings in a row Telegram sometimes stops applying them without giving any error. If the limit message appears, wait a few minutes and run again.
+- It does not simulate the Esc key (on Telegram Web K it opens the global search) and never hides confirmation dialogs.
 
-- **Solo interfaccia in inglese.** Sia l'avviso "joined Telegram" sia le voci di menu (Archive, Select, Delete...) sono confrontati con il testo inglese. Con un'altra lingua lo script non trova niente e lo dice. Per aggiungere una lingua bisogna modificare l'oggetto `TEXTS` in cima al file, con le stringhe esatte lette dall'interfaccia (Impostazioni > Language).
-- **Dipende dai nomi interni di Telegram Web K** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): un aggiornamento di Telegram può romperlo.
-- Solo Telegram Web **K**, non Web A (`/a/`).
-- Nella scheda "Contacts" le chat già archiviate restano in lista: la **Prova** le conta comunque, **Archivia** le salta.
-- Telegram crea sempre la chat quando un contatto si iscrive: lo script le ripulisce, non impedisce che ricompaiano.
+## Known limitations
 
-## Cosa è verificato
+- **Telegram must be in English.** The "joined Telegram" notice and Telegram's menu entries (Archive, Select, Delete...) are compared with the English text; the language of the script's panel is unrelated. With Telegram in another language the script finds nothing and says so. To add a language, edit the `TEXTS` object at the top of the file with the exact strings read from the interface (Settings > Language).
+- **It depends on Telegram Web K's internal names** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): a Telegram update can break it.
+- Telegram Web **K** only, not Web A (`/a/`).
+- In the "Contacts" tab already archived chats stay in the list: **Dry run** still counts them, **Archive** skips them.
+- Telegram always creates the chat when a contact joins: the script cleans them up, it does not prevent them from coming back.
 
-| Cosa | Esito |
+## What is verified
+
+| What | Result |
 | --- | --- |
-| Sintassi (`node --check`) | ok |
-| Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto durante le operazioni, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto | 5 volte su 5 per ognuno degli 11 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 3 scenari |
-| Archiviazione su Telegram Web K vero (con codice equivalente eseguito dalla console) | 100 su 100 e 38 su 38 |
-| Userscript installato su un telefono Android: il pannello compare e **Prova** conta le chat | 1 volta (sola lettura) |
-| **Archivia** e **Cancella…** dallo userscript installato, su Telegram vero | **non ancora verificati** |
-| Cancellazione dall'archivio su Telegram vero | provata con codice equivalente (14 e 38 chat), con 3 chat su 14 non verificate singolarmente |
-| Cancellazione direttamente dalla lista principale su Telegram vero | **non verificata** (il menu e la finestra di conferma potrebbero avere testi diversi dall'archivio) |
-| Italiano o altre lingue, Firefox | **non verificato** |
+| Syntax (`node --check`) | ok |
+| Logic on a mock page (invented chats, headless Chrome): dry run, archiving, group/different preview left alone, only "Deleted Account", selective deletion with confirmation from archive and from main list, cancel, Stop, compact panel while running, per-run limit, stop after 3 errors, refusal with the archive open | 5 times out of 5 for each of the 11 scenarios; in a narrow window (420 px, like a phone) 3 times out of 3 for 2 scenarios |
+| Panel language selection (Italian/English): panel texts, messages, deletion confirmation, remembered choice, browser language as default | 5 times out of 5 for 4 scenarios, on the mock page |
+| Archiving on the real Telegram Web K (with equivalent code run from the console) | 100 of 100 and 38 of 38 |
+| Userscript installed on an Android phone: the panel appears and **Dry run** counts the chats (version 0.1.0) | 1 time (read-only) |
+| **Archive** and **Delete…** from the installed userscript, on the real Telegram | **not verified yet** |
+| Deletion from the archive on the real Telegram | tried with equivalent code (14 and 38 chats), with 3 of 14 chats not verified individually |
+| Deletion straight from the main list on the real Telegram | **not verified** (the menu and the confirmation dialog may use different texts than in the archive) |
+| Telegram in Italian or other languages, Firefox | **not verified** |
 
-## Sviluppo
+## Development
 
-Il file è uno solo, senza dipendenze né build. Nomi di funzioni e costanti in inglese, commenti e messaggi in italiano.
+A single file, no dependencies, no build. Function and constant names in English, comments in Italian; user-facing messages are in both Italian and English (see `I18N` at the top of the file).
 
-## Licenza
+## License
 
 [MIT](LICENSE)
