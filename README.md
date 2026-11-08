@@ -14,7 +14,8 @@ A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the ch
 
 > **Status: version 0.4.1, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
 
-<img width="369" height="800" alt="Senza titolo" src="https://github.com/user-attachments/assets/eeacf1d1-ae79-4313-ad34-a7bafb15825e" />
+<img width="369" height="800" alt="Anteprima" src="https://github.com/user-attachments/assets/52067e26-4d6a-4a06-8fe0-a3ffb0f77e45" />
+
 
 ## Installation
 
