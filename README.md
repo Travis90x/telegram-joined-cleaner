@@ -1,6 +1,9 @@
+
 🇮🇹 [Leggi il README in italiano](README_ITA.md)
 
 # Telegram Joined Cleaner
+
+<img width="327" height="325" alt="Screenshot 2026-11-08 222559" src="https://github.com/user-attachments/assets/bdd3979c-9c3c-4202-a977-00d2c323ed65" />
 
 A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the chat list of **Telegram Web K** (`https://web.telegram.org/k/`): it removes the chats Telegram creates when a contact joins Telegram, i.e. the ones that only contain the "*name* joined Telegram" notice.
 
@@ -10,6 +13,8 @@ A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the ch
 - It only runs in your browser and does not use Telegram's internal APIs: it repeats the gestures you would do by hand (context menu, Archive, Select, Delete). It does not send your data to any server: the only connection is reading the language files from GitHub (see "Privacy").
 
 > **Status: version 0.4.0, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
+
+<img width="369" height="800" alt="Senza titolo" src="https://github.com/user-attachments/assets/eeacf1d1-ae79-4313-ad34-a7bafb15825e" />
 
 ## Installation
 
