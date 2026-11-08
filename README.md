@@ -9,7 +9,7 @@ A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the ch
 - Panel in **Italian or English**, your choice.
 - It only runs in your browser, sends nothing to any server and does not use Telegram's internal APIs: it repeats the gestures you would do by hand (context menu, Archive, Select, Delete).
 
-> **Status: version 0.3.0, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
+> **Status: version 0.3.1, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
 
 ## Installation
 
@@ -58,7 +58,7 @@ The check looks **only at the preview of the last message**: chats are not opene
 - **Telegram must be in English.** The "joined Telegram" notice and Telegram's menu entries (Archive, Select, Delete...) are compared with the English text; the language of the script's panel is unrelated. With Telegram in another language the script finds nothing and says so. To add a language, edit the `TEXTS` object at the top of the file with the exact strings read from the interface (Settings > Language).
 - **It depends on Telegram Web K's internal names** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): a Telegram update can break it.
 - Telegram Web **K** only, not Web A (`/a/`).
-- In the "Contacts" tab already archived chats stay in the list: **Dry run** still counts them, **Archive** skips them.
+- Already archived chats disappear from the list in the "All" tab and in the other folders, so there the **Dry run** may find 0 chats: that is normal. In the "Contacts" tab they stay in the list: **Dry run** still counts them, **Archive** skips them. The **Dry run** says which tab it counted in.
 - Telegram always creates the chat when a contact joins: the script cleans them up, it does not prevent them from coming back.
 
 ## What is verified
@@ -68,8 +68,9 @@ The check looks **only at the preview of the last message**: chats are not opene
 | Syntax (`node --check`) | ok |
 | Logic on a mock page (invented chats, headless Chrome): dry run, archiving, group/different preview left alone, only "Deleted Account", selective deletion with confirmation from archive and from main list, cancel, Stop, compact panel while running, per-run limit, stop after 3 errors, refusal with the archive open | 5 times out of 5 for each of the 11 scenarios; in a narrow window (420 px, like a phone) 3 times out of 3 for 2 scenarios |
 | Panel language selection (Italian/English): panel texts, messages, deletion confirmation, remembered choice, browser language as default | 5 times out of 5 for 4 scenarios, on the mock page |
+| Panel log showing the most recent lines after every operation (it used to stay at the top), a clear message when no chats are found, the active tab name in the messages | 5 times out of 5 for 3 scenarios, on the mock page. The tab name is not verified on the real Telegram |
 | Archiving on the real Telegram Web K (with equivalent code run from the console) | 100 of 100 and 38 of 38 |
-| Userscript installed on an Android phone: the panel appears and **Dry run** counts the chats (version 0.1.0) | 1 time (read-only) |
+| Userscript installed on an Android phone: the panel appears and **Dry run** counts the chats, also with the panel in English and with the "Only Deleted Account" checkbox (versions 0.1.0 and 0.3.0) | 2 times, read-only (in the "Contacts" tab: 261 chats seen, 59 "joined-only") |
 | **Archive** and **Delete…** from the installed userscript, on the real Telegram | **not verified yet** |
 | Deletion from the archive on the real Telegram | tried with equivalent code (14 and 38 chats), with 3 of 14 chats not verified individually |
 | Deletion straight from the main list on the real Telegram | **not verified** (the menu and the confirmation dialog may use different texts than in the archive) |

@@ -9,7 +9,7 @@ Userscript per [Tampermonkey](https://www.tampermonkey.net/) che ripulisce la li
 - Pannello in **italiano o inglese**, a scelta.
 - Funziona solo nel browser, non invia niente a nessun server e non usa le API interne di Telegram: ripete i gesti che faresti a mano (menu contestuale, Archive, Select, Delete).
 
-> **Stato: versione 0.3.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
+> **Stato: versione 0.3.1, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
 
 ## Installazione
 
@@ -58,7 +58,7 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 - **Telegram deve essere in inglese.** L'avviso "joined Telegram" e le voci di menu di Telegram (Archive, Select, Delete...) sono confrontati con il testo inglese; la lingua del pannello dello script non c'entra. Con Telegram in un'altra lingua lo script non trova niente e lo dice. Per aggiungere una lingua bisogna modificare l'oggetto `TEXTS` in cima al file, con le stringhe esatte lette dall'interfaccia (Impostazioni > Language).
 - **Dipende dai nomi interni di Telegram Web K** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): un aggiornamento di Telegram può romperlo.
 - Solo Telegram Web **K**, non Web A (`/a/`).
-- Nella scheda "Contacts" le chat già archiviate restano in lista: la **Prova** le conta comunque, **Archivia** le salta.
+- Le chat già archiviate spariscono dalla lista nella scheda "All" e nelle altre cartelle, quindi lì la **Prova** può trovare 0 chat: è normale. Nella scheda "Contacts" invece restano in lista: la **Prova** le conta comunque, **Archivia** le salta. La **Prova** scrive in quale scheda ha contato.
 - Telegram crea sempre la chat quando un contatto si iscrive: lo script le ripulisce, non impedisce che ricompaiano.
 
 ## Cosa è verificato
@@ -68,8 +68,9 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 | Sintassi (`node --check`) | ok |
 | Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto durante le operazioni, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto | 5 volte su 5 per ognuno degli 11 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 2 scenari |
 | Scelta della lingua del pannello (italiano/inglese): testi del pannello, messaggi, conferma di cancellazione, scelta ricordata, lingua del browser come default | 5 volte su 5 per 4 scenari, su pagina finta |
+| Registro del pannello che mostra le righe più recenti dopo ogni operazione (prima restava in cima), messaggio chiaro quando non trova chat, nome della scheda attiva nei messaggi | 5 volte su 5 per 3 scenari, su pagina finta. Il nome della scheda non è verificato su Telegram vero |
 | Archiviazione su Telegram Web K vero (con codice equivalente eseguito dalla console) | 100 su 100 e 38 su 38 |
-| Userscript installato su un telefono Android: il pannello compare e **Prova** conta le chat (versione 0.1.0) | 1 volta (sola lettura) |
+| Userscript installato su un telefono Android: il pannello compare e **Prova** conta le chat, anche con il pannello in inglese e con la casella "Solo Deleted Account" (versioni 0.1.0 e 0.3.0) | 2 volte, sola lettura (nella scheda "Contacts": 261 chat viste, 59 "solo joined") |
 | **Archivia** e **Cancella…** dallo userscript installato, su Telegram vero | **non ancora verificati** |
 | Cancellazione dall'archivio su Telegram vero | provata con codice equivalente (14 e 38 chat), con 3 chat su 14 non verificate singolarmente |
 | Cancellazione direttamente dalla lista principale su Telegram vero | **non verificata** (il menu e la finestra di conferma potrebbero avere testi diversi dall'archivio) |

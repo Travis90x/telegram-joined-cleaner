@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram Joined Cleaner
 // @namespace    https://github.com/Travis90x/telegram-joined-cleaner
-// @version      0.3.0
+// @version      0.3.1
 // @description  On Telegram Web K, archives (or, after confirmation, deletes) the chats that only contain the "... joined Telegram" notice.
 // @description:it  Su Telegram Web K archivia (o, dopo conferma, cancella) le chat che contengono solo l'avviso "... joined Telegram".
 // @author       Travis90x
@@ -21,7 +21,7 @@
   if (window.top !== window.self) return;
   if (window.__telegramJoinedCleaner) return;
 
-  const VERSION = '0.3.0';
+  const VERSION = '0.3.1';
 
   // ===================================================================
   // Testi di Telegram che lo script riconosce
@@ -125,7 +125,8 @@
       mode_named: 'solo chat con nome',
       mode_deleted: 'solo "Deleted Account"',
       dry_result: 'Prova ({0}): {1} chat viste, {2} con solo "joined" ({3} con nome, {4} "Deleted Account"). Impostazione attuale: {5}. Verrebbero toccate: {6}. Non è stato modificato niente.',
-      dry_nothing: 'Nessuna chat riconosciuta: se Telegram non è in inglese i testi non coincidono (vedi README).',
+      dry_nothing: 'Nessuna chat "solo joined" in questa lista ({0} chat viste). Cause possibili: sono già archiviate (nella scheda "All" spariscono: prova la scheda "Contacts" o apri l\'archivio) oppure Telegram non è in inglese (vedi README).',
+      tab_suffix: ', scheda «{0}»',
       dry_note: 'Nota: nella scheda "Contacts" le chat già archiviate restano in lista e vengono contate.',
     },
     en: {
@@ -192,7 +193,8 @@
       mode_named: 'named chats only',
       mode_deleted: 'only "Deleted Account"',
       dry_result: 'Dry run ({0}): {1} chats seen, {2} with only "joined" ({3} named, {4} "Deleted Account"). Current setting: {5}. Would be touched: {6}. Nothing was modified.',
-      dry_nothing: 'No chats recognized: if Telegram is not in English the texts do not match (see the README).',
+      dry_nothing: 'No "joined-only" chats in this list ({0} chats seen). Possible causes: they are already archived (they disappear from the "All" tab: try the "Contacts" tab or open the archive) or Telegram is not in English (see the README).',
+      tab_suffix: ', tab «{0}»',
       dry_note: 'Note: in the "Contacts" tab already archived chats stay in the list and are counted.',
     },
   };
@@ -261,6 +263,18 @@
     return Array.from(document.querySelectorAll('span, div, h1, h2, h3')).some(
       (el) => el.childElementCount === 0 && !el.closest('.btn-menu') && isShown(el) && asciiOnly(el.textContent) === TEXTS.archivedChats
     );
+  }
+
+  // Nome della scheda (cartella) attiva, per esempio "All" o "Contacts": serve solo a informare l'utente.
+  // Se la struttura della pagina non è quella attesa restituisce una stringa vuota.
+  function activeTabName() {
+    try {
+      const el = Array.from(document.querySelectorAll('.menu-horizontal-div-item')).find((e) => e.classList.contains('active') && isShown(e));
+      if (!el) return '';
+      const label = el.querySelector('.text-super');
+      const name = label ? label.textContent : el.textContent.replace(/\s*\d+\s*$/, '');
+      return name.trim().slice(0, 30);
+    } catch (e) { return ''; }
   }
 
   const selectionBar = () => Array.from(document.querySelectorAll('.chatlist-selection-header')).find(isShown) || null;
@@ -590,7 +604,8 @@
   // Passo 1: conta (senza toccare niente). Passo 2: conferma nel pannello. Passo 3: cancella a gruppi.
   async function deleteRun() {
     const inArchive = isArchiveOpen();
-    const where = tr(inArchive ? 'where_archive' : 'where_main');
+    const tab = inArchive ? '' : activeTabName();
+    const where = tr(inArchive ? 'where_archive' : 'where_main') + (tab ? tr('tab_suffix', tab) : '');
     if (selectionBar()) { ui.log(tr('selection_mode')); return; }
     let sc = findScroller();
     if (!sc) { ui.log(tr('no_list')); return; }
@@ -648,7 +663,9 @@
   async function dryRun() {
     const sc = findScroller();
     if (!sc) { ui.log(tr('no_list')); return; }
-    const where = tr(isArchiveOpen() ? 'loc_archive' : 'loc_main');
+    const inArchive = isArchiveOpen();
+    const tab = inArchive ? '' : activeTabName();
+    const where = tr(inArchive ? 'loc_archive' : 'loc_main') + (tab ? tr('tab_suffix', tab) : '');
     ui.setStatus(tr('dry_status', where));
     const rows = await scanList(sc);
     const all = Array.from(rows.values());
@@ -657,8 +674,8 @@
     const targets = joined.filter((v) => isWantedTitle(v.title)).length;
     const mode = tr(SETTINGS.onlyDeletedAccounts ? 'mode_deleted' : 'mode_named');
     ui.log(tr('dry_result', where, all.length, joined.length, joined.length - deletedAcc, deletedAcc, mode, targets));
-    if (all.length > 0 && joined.length === 0) ui.log(tr('dry_nothing'));
-    if (!isArchiveOpen()) ui.log(tr('dry_note'));
+    if (all.length > 0 && joined.length === 0) ui.log(tr('dry_nothing', all.length));
+    if (!inArchive) ui.log(tr('dry_note'));
   }
 
   // ===================================================================
@@ -724,7 +741,12 @@
     const inc = $('.inc'), confirmBox = $('.confirm'), confirmTxt = $('.confirm .txt'), bYes = $('.yes'), bNo = $('.no');
     const langSel = $('.lang');
     const lines = [];
-    const setRunningUi = (on) => { panel.classList.toggle('running', on); host.style.pointerEvents = on ? 'none' : ''; };
+    const setRunningUi = (on) => {
+      panel.classList.toggle('running', on);
+      host.style.pointerEvents = on ? 'none' : '';
+      // Il registro nascosto perde la posizione di scorrimento: quando torna visibile mostro le righe più recenti.
+      if (!on) logEl.scrollTop = logEl.scrollHeight;
+    };
 
     // Riscrive i testi fissi del pannello nella lingua scelta (i messaggi già nel registro restano com'erano).
     const applyLang = () => {
