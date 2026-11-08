@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram Joined Cleaner
 // @namespace    https://github.com/Travis90x/telegram-joined-cleaner
-// @version      0.1.0
+// @version      0.2.0
 // @description  Su Telegram Web K archivia (e, con conferma, cancella dall'archivio) le chat che contengono solo l'avviso "... joined Telegram".
 // @author       Travis90x
 // @license      MIT
@@ -20,7 +20,7 @@
   if (window.top !== window.self) return;
   if (window.__telegramJoinedCleaner) return;
 
-  const VERSION = '0.1.0';
+  const VERSION = '0.2.0';
 
   // ===================================================================
   // Testi riconosciuti
@@ -43,7 +43,7 @@
   };
 
   const SETTINGS = {
-    includeDeletedAccounts: false, // aggiornato dalla casella nel pannello
+    onlyDeletedAccounts: false, // casella nel pannello: false = solo chat con nome, true = solo "Deleted Account"
     archiveLimitPerRun: 80, // dopo ~100 archiviazioni di fila Telegram rallenta
     deleteBatchSize: 40, // provato con 38
     maxConsecutiveErrors: 3,
@@ -90,7 +90,8 @@
     const s = rowPreview(a);
     return /^\d+$/.test(rowId(a)) && t.length > 0 && TEXTS.joinedSuffixes.some((suf) => s === t + suf);
   };
-  const isWantedTitle = (t) => SETTINGS.includeDeletedAccounts || t !== TEXTS.deletedAccount;
+  // Con la casella spenta si trattano solo le chat con nome; accesa, solo quelle di account eliminati.
+  const isWantedTitle = (t) => (t === TEXTS.deletedAccount) === SETTINGS.onlyDeletedAccounts;
   const isTargetRow = (a) => isJoinedRow(a) && isWantedTitle(rowTitle(a));
 
   // La lista in vista: deve essercene UNA sola, altrimenti non si procede.
@@ -274,7 +275,8 @@
   }
 
   // ===================================================================
-  // Cancellazione dall'archivio (definitiva, solo dopo conferma nel pannello)
+  // Cancellazione (definitiva, solo dopo conferma nel pannello): dalla lista aperta,
+  // che sia l'archivio o la lista principale.
   // ===================================================================
   async function bringIntoView(sc, id) {
     let row = sc.querySelector(rowSelector(id));
@@ -431,21 +433,23 @@
 
   // Passo 1: conta (senza toccare niente). Passo 2: conferma nel pannello. Passo 3: cancella a gruppi.
   async function deleteRun() {
-    if (!isArchiveOpen()) { ui.log('Apri prima l\'archivio (menu ☰ > "' + TEXTS.archivedChats + '"): la cancellazione si fa solo da lì.'); return; }
+    const inArchive = isArchiveOpen();
+    const where = inArchive ? 'nell\'archivio' : 'nella lista principale';
     if (selectionBar()) { ui.log('Telegram è in modalità selezione: esci dalla selezione e riprova.'); return; }
     let sc = findScroller();
-    if (!sc) { ui.log('Non trovo la lista dell\'archivio (o ce n\'è più di una in vista). Nessuna azione.'); return; }
+    if (!sc) { ui.log('Non trovo la lista chat (o ce n\'è più di una in vista). Nessuna azione.'); return; }
 
-    ui.setStatus('Conto le chat nell\'archivio…');
+    ui.setStatus('Conto le chat ' + where + '…');
     const rows = await scanList(sc);
     if (state.stop) { ui.log('Fermato dall\'utente. Non è stato cancellato niente.'); return; }
     const all = Array.from(rows.values());
     const targets = all.filter((v) => v.joined && isWantedTitle(v.title)).length;
     const others = all.length - targets;
-    if (targets === 0) { ui.log('Nell\'archivio non ci sono chat da cancellare (' + all.length + ' chat viste).'); return; }
+    if (targets === 0) { ui.log('Non ci sono chat da cancellare ' + where + ' (' + all.length + ' chat viste).'); return; }
 
+    const kind = SETTINGS.onlyDeletedAccounts ? 'di "' + TEXTS.deletedAccount + '" con solo l\'avviso "joined"' : 'con solo l\'avviso "joined"';
     const ok = await ui.confirm(
-      'Nell\'archivio ci sono ' + targets + ' chat con solo l\'avviso "joined". Le altre ' + others + ' chat non verranno toccate. La cancellazione è DEFINITIVA.',
+      'Cancellazione DEFINITIVA ' + where + ': ' + targets + ' chat ' + kind + '. Le altre ' + others + ' chat non verranno toccate.',
       'Sì, cancella ' + targets
     );
     if (!ok) { ui.log('Cancellazione annullata. Non è stato cancellato niente.'); return; }
@@ -456,7 +460,7 @@
     let reason = 'completato';
     while (remaining > 0) {
       if (state.stop) { reason = 'fermato dall\'utente'; break; }
-      if (!isArchiveOpen()) { reason = 'l\'archivio non è più aperto'; break; }
+      if (isArchiveOpen() !== inArchive) { reason = 'la lista aperta è cambiata'; break; }
       sc = findScroller();
       if (!sc) { reason = 'lista persa'; break; }
       const ids = await collectTargets(sc, Math.min(SETTINGS.deleteBatchSize, remaining));
@@ -481,7 +485,7 @@
     if (sc) {
       const after = await scanList(sc);
       const left = Array.from(after.values()).filter((v) => v.joined && isWantedTitle(v.title)).length;
-      ui.log('Controllo finale: nell\'archivio restano ' + left + ' chat "solo joined".');
+      ui.log('Controllo finale: ' + where + ' restano ' + left + ' chat "solo joined" del tipo scelto.');
     }
   }
 
@@ -498,7 +502,7 @@
     const joined = all.filter((v) => v.joined);
     const deletedAcc = joined.filter((v) => v.title === TEXTS.deletedAccount).length;
     const targets = joined.filter((v) => isWantedTitle(v.title)).length;
-    ui.log('Prova (' + where + '): ' + all.length + ' chat viste, ' + joined.length + ' con solo "joined" (di cui ' + deletedAcc + ' "' + TEXTS.deletedAccount + '"). Verrebbero toccate: ' + targets + '. Non è stato modificato niente.');
+    ui.log('Prova (' + where + '): ' + all.length + ' chat viste, ' + joined.length + ' con solo "joined" (' + (joined.length - deletedAcc) + ' con nome, ' + deletedAcc + ' "' + TEXTS.deletedAccount + '"). Impostazione attuale: ' + (SETTINGS.onlyDeletedAccounts ? 'solo "' + TEXTS.deletedAccount + '"' : 'solo chat con nome') + '. Verrebbero toccate: ' + targets + '. Non è stato modificato niente.');
     if (all.length > 0 && joined.length === 0) ui.log('Nessuna chat riconosciuta: se Telegram non è in inglese i testi non coincidono (vedi README).');
     if (!isArchiveOpen()) ui.log('Nota: nella scheda "Contacts" le chat già archiviate restano in lista e vengono contate.');
   }
@@ -535,16 +539,21 @@
       '.confirm .btns{margin:0}',
       '.log{margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font:11px/1.4 ui-monospace,Consolas,monospace;background:#161a23;border-radius:6px;padding:6px}',
       '.x{padding:2px 8px;background:transparent}',
+      // Durante un\'operazione il pannello si riduce a stato + Stop e lascia passare i clic:
+      // così non copre le righe della lista (sul telefono la lista occupa tutta la larghezza).
+      '.panel.running .dry,.panel.running .arch,.panel.running .del,.panel.running .opt,.panel.running .log{display:none}',
+      '.panel.running .btns{grid-template-columns:1fr}',
+      '.stop{pointer-events:auto}',
       '</style>',
       '<button class="fab" title="Telegram Joined Cleaner">🧹</button>',
       '<div class="panel" hidden>',
       '  <div class="head"><strong>Joined Cleaner</strong><span class="ver">v' + VERSION + '</span><button class="x" title="Chiudi">×</button></div>',
       '  <div class="status">Pronto.</div>',
-      '  <label class="opt"><input type="checkbox" class="inc"> Includi "' + TEXTS.deletedAccount + '"</label>',
+      '  <label class="opt"><input type="checkbox" class="inc"> Solo "' + TEXTS.deletedAccount + '" (solo account cancellati)</label>',
       '  <div class="btns">',
       '    <button class="dry">Prova</button>',
       '    <button class="arch primary">Archivia</button>',
-      '    <button class="del">Cancella archiviate…</button>',
+      '    <button class="del">Cancella…</button>',
       '    <button class="stop" disabled>Stop</button>',
       '  </div>',
       '  <div class="confirm" hidden><div class="txt"></div><div class="btns"><button class="yes danger"></button><button class="no">Annulla</button></div></div>',
@@ -557,6 +566,7 @@
     const bDry = $('.dry'), bArch = $('.arch'), bDel = $('.del'), bStop = $('.stop');
     const inc = $('.inc'), confirmBox = $('.confirm'), confirmTxt = $('.confirm .txt'), bYes = $('.yes'), bNo = $('.no');
     const lines = [];
+    const setRunningUi = (on) => { panel.classList.toggle('running', on); host.style.pointerEvents = on ? 'none' : ''; };
 
     const api = {
       log(msg) {
@@ -568,13 +578,19 @@
         console.log('[Joined Cleaner] ' + msg);
       },
       setStatus(msg) { statusEl.textContent = msg; },
-      setBusy(busy) { bDry.disabled = bArch.disabled = bDel.disabled = busy; bStop.disabled = !busy; if (!busy) statusEl.textContent = 'Pronto.'; },
+      setBusy(busy) {
+        bDry.disabled = bArch.disabled = bDel.disabled = busy;
+        bStop.disabled = !busy;
+        if (busy) { panel.hidden = false; fab.hidden = true; } else statusEl.textContent = 'Pronto.';
+        setRunningUi(busy);
+      },
       confirm(text, yesLabel) {
         return new Promise((resolve) => {
           confirmTxt.textContent = text;
           bYes.textContent = yesLabel;
           confirmBox.hidden = false;
-          const done = (v) => { confirmBox.hidden = true; bYes.onclick = bNo.onclick = null; resolve(v); };
+          setRunningUi(false); // per la conferma serve il pannello intero e cliccabile
+          const done = (v) => { confirmBox.hidden = true; bYes.onclick = bNo.onclick = null; setRunningUi(state.running); resolve(v); };
           bYes.onclick = () => done(true);
           bNo.onclick = () => done(false);
         });
@@ -589,7 +605,7 @@
 
     fab.onclick = () => { panel.hidden = false; fab.hidden = true; };
     $('.x').onclick = () => { panel.hidden = true; fab.hidden = false; };
-    inc.onchange = () => { SETTINGS.includeDeletedAccounts = inc.checked; };
+    inc.onchange = () => { SETTINGS.onlyDeletedAccounts = inc.checked; };
 
     document.body.appendChild(host);
     return api;

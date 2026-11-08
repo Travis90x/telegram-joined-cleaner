@@ -3,10 +3,10 @@
 Userscript per [Tampermonkey](https://www.tampermonkey.net/) che ripulisce la lista chat di **Telegram Web K** (`https://web.telegram.org/k/`) dalle chat create quando un contatto si iscrive a Telegram, cioè quelle che contengono solo l'avviso "*nome* joined Telegram".
 
 - **Archivia** quelle chat (reversibile).
-- **Cancella dall'archivio** le stesse chat, solo se lo chiedi e dopo una conferma nel pannello (definitivo).
+- **Cancella** le stesse chat (direttamente dalla lista principale o dall'archivio), solo se lo chiedi e dopo una conferma nel pannello (definitivo).
 - Funziona solo nel browser, non invia niente a nessun server e non usa le API interne di Telegram: ripete i gesti che faresti a mano (menu contestuale, Archive, Select, Delete).
 
-> **Stato: versione 0.1.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K; la prova sul Telegram vero va ancora completata (vedi "Cosa è verificato").
+> **Stato: versione 0.2.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
 
 ## Installazione
 
@@ -23,10 +23,12 @@ Il pannello ha quattro pulsanti:
 | --- | --- |
 | **Prova** | Solo lettura: scorre la lista aperta e dice quante chat sono "solo joined". Non modifica niente. Da fare sempre per primo. |
 | **Archivia** | Archivia le chat "solo joined" della lista principale, una alla volta, verificando ogni azione. |
-| **Cancella archiviate…** | Da usare con l'archivio aperto (menu ☰ > *Archived Chats*). Conta le chat da cancellare, chiede conferma nel pannello e poi le cancella a gruppi. |
+| **Cancella…** | Cancella direttamente le chat "solo joined" della lista aperta: la lista principale oppure, se l'hai aperto (menu ☰ > *Archived Chats*), l'archivio. Conta le chat, chiede conferma nel pannello e poi le cancella a gruppi. **Definitivo.** |
 | **Stop** | Ferma l'operazione in corso. |
 
-La casella **Includi "Deleted Account"** è spenta di default: le chat con account eliminati restano dove sono.
+La casella **Solo "Deleted Account"** decide quali chat tocca lo script. Spenta (default): solo le chat con un nome. Accesa: solo quelle di account eliminati. Per trattarle tutte, esegui l'operazione due volte, una per tipo.
+
+Mentre un'operazione è in corso il pannello si riduce a stato e Stop e lascia passare i clic, così non copre la lista (utile sul telefono, dove la lista occupa tutta la larghezza).
 
 ## Come riconosce una chat "vuota"
 
@@ -42,7 +44,7 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 
 - Archiviare è reversibile; cancellare no. La cancellazione parte solo dopo che hai premuto il pulsante di conferma nel pannello, e Telegram mostra comunque la sua finestra "Delete N chats": lo script la conferma solo se il numero coincide con le chat selezionate.
 - Prima di cancellare controlla che siano selezionate **esattamente** le chat previste, e nessun'altra. Altrimenti si ferma.
-- Nell'archivio le chat che non sono "solo joined" non vengono mai toccate.
+- Le chat che non sono "solo joined" non vengono mai toccate, né nella lista principale né nell'archivio.
 - Il ritmo è prudente (circa 1-2 secondi per chat), si ferma dopo 3 errori di fila e archivia al massimo 80 chat per giro: dopo circa 100 archiviazioni di fila Telegram a volte smette di applicarle senza dare errori. Se compare il messaggio del limite, aspetta qualche minuto e rilancia.
 - Non simula il tasto Esc (su Telegram Web K apre la ricerca globale) e non nasconde mai le finestre di conferma.
 
@@ -59,10 +61,12 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 | Cosa | Esito |
 | --- | --- |
 | Sintassi (`node --check`) | ok |
-| Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, "Deleted Account" esclusi, cancellazione selettiva con conferma, annulla, Stop, limite per giro, stop dopo 3 errori, rifiuto con archivio chiuso/aperto | 5 volte su 5 per ognuno degli 8 scenari |
+| Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto durante le operazioni, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto | 5 volte su 5 per ognuno degli 11 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 3 scenari |
 | Archiviazione su Telegram Web K vero (con codice equivalente eseguito dalla console) | 100 su 100 e 38 su 38 |
-| Come userscript Tampermonkey vero, su Telegram vero | **non ancora verificato** |
+| Userscript installato su un telefono Android: il pannello compare e **Prova** conta le chat | 1 volta (sola lettura) |
+| **Archivia** e **Cancella…** dallo userscript installato, su Telegram vero | **non ancora verificati** |
 | Cancellazione dall'archivio su Telegram vero | provata con codice equivalente (14 e 38 chat), con 3 chat su 14 non verificate singolarmente |
+| Cancellazione direttamente dalla lista principale su Telegram vero | **non verificata** (il menu e la finestra di conferma potrebbero avere testi diversi dall'archivio) |
 | Italiano o altre lingue, Firefox | **non verificato** |
 
 ## Sviluppo
