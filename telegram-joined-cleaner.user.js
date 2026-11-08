@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram Joined Cleaner
 // @namespace    https://github.com/Travis90x/telegram-joined-cleaner
-// @version      0.4.0
+// @version      0.4.1
 // @description  On Telegram Web K, archives (or, after confirmation, deletes) the chats that only contain the "... joined Telegram" notice.
 // @description:it  Su Telegram Web K archivia (o, dopo conferma, cancella) le chat che contengono solo l'avviso "... joined Telegram".
 // @author       Travis90x
@@ -21,7 +21,7 @@
   if (window.top !== window.self) return;
   if (window.__telegramJoinedCleaner) return;
 
-  const VERSION = '0.4.0';
+  const VERSION = '0.4.1';
 
   // ===================================================================
   // Testi di Telegram che lo script riconosce
@@ -68,6 +68,7 @@
   const REPO = 'Travis90x/telegram-joined-cleaner';
   const LANG_API = 'https://api.github.com/repos/' + REPO + '/contents/languages?ref=main';
   const LANG_RAW = 'https://raw.githubusercontent.com/' + REPO + '/main/languages/';
+  const SCRIPT_URL = 'https://raw.githubusercontent.com/' + REPO + '/main/telegram-joined-cleaner.user.js';
 
   const EN = {
     _name: 'English',
@@ -83,6 +84,16 @@
     btn_copy: 'Copy log',
     btn_copied: 'Copied ✓',
     copy_failed: 'Could not copy: select the log text by hand.',
+    btn_update: 'Update languages/script',
+    upd_start: 'Checking for updates…',
+    upd_langs_ok: 'Languages updated: {0}.',
+    upd_langs_fail: 'Cannot read the list of languages from GitHub (network blocked or limit reached): keeping the known ones.',
+    upd_script_same: 'The script is up to date (version {0}).',
+    upd_script_new: 'Version {0} of the script is available (you have {1}).',
+    upd_script_fail: 'Cannot check the script version on GitHub.',
+    upd_script_confirm: 'Update the script to version {0}? The Tampermonkey install page opens, where you must confirm.',
+    upd_script_open: 'Open the update page',
+    upd_script_opened: 'Update page opened. If Tampermonkey does not offer it, use "Install from URL" (see the README).',
     lang_load_failed: 'Cannot load the language "{0}": keeping the current one.',
     stop_requested: 'Stop requested…',
     busy: 'An operation is already running.',
@@ -201,18 +212,20 @@
     return count > 0 ? pack : null;
   }
 
-  async function getJson(url) {
+  async function getBody(url, kind) {
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS) : null;
     try {
       // niente cookie e niente indirizzo della pagina di Telegram verso GitHub
       const r = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
+      return kind === 'text' ? await r.text() : await r.json();
     } finally {
       if (timer) clearTimeout(timer);
     }
   }
+  const getJson = (url) => getBody(url, 'json');
+  const getText = (url) => getBody(url, 'text');
 
   const setAvailable = (codes) => {
     const set = new Set(['en']);
@@ -222,16 +235,17 @@
 
   // Elenco delle lingue = file .json nella cartella languages/ del repository (GitHub API).
   // Restituisce null se non raggiungibile e non c'è nemmeno una copia in cache.
+  const listCodes = (items) => (Array.isArray(items) ? items : [])
+    .filter((i) => i && i.type === 'file' && typeof i.name === 'string')
+    .map((i) => (/^(.+)\.json$/.exec(i.name) || [])[1])
+    .filter((c) => c && LANG_CODE.test(c))
+    .slice(0, MAX_LANGUAGES);
+
   async function loadAvailable() {
     const cached = cacheGet('list');
     if (isFresh(cached) && Array.isArray(cached.data)) return cached.data;
     try {
-      const items = await getJson(LANG_API);
-      const codes = (Array.isArray(items) ? items : [])
-        .filter((i) => i && i.type === 'file' && typeof i.name === 'string')
-        .map((i) => (/^(.+)\.json$/.exec(i.name) || [])[1])
-        .filter((c) => c && LANG_CODE.test(c))
-        .slice(0, MAX_LANGUAGES);
+      const codes = listCodes(await getJson(LANG_API));
       if (codes.length) { cacheSet('list', codes); return codes; }
     } catch (e) { /* rete bloccata o limite di GitHub: uso la copia in cache */ }
     return cached && Array.isArray(cached.data) ? cached.data : null;
@@ -252,6 +266,45 @@
     if (old) return (packs[code] = old);
     return packs[code] || null;
   }
+
+  // Aggiornamento forzato (pulsante del pannello): legge subito l'elenco da GitHub ignorando la cache e riscarica la
+  // lingua in uso. Se l'elenco non è raggiungibile solleva un errore e lascia la cache com'era.
+  async function refreshLanguages() {
+    const codes = listCodes(await getJson(LANG_API));
+    if (!codes.length) throw new Error('empty list');
+    cacheSet('list', codes);
+    setAvailable(codes);
+    // le altre lingue si riscaricheranno quando servono
+    for (const c of Object.keys(packs)) if (c !== 'en' && c !== lang) delete packs[c];
+    try {
+      Object.keys(localStorage)
+        .filter((k) => k.indexOf(CACHE_PREFIX + 'pack.') === 0 && k !== CACHE_PREFIX + 'pack.' + lang)
+        .forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* senza storage non c'è cache da svuotare */ }
+    if (lang !== 'en') {
+      if (available.indexOf(lang) < 0) { lang = 'en'; return; } // lingua tolta dal repository
+      try {
+        const data = await getJson(LANG_RAW + lang + '.json');
+        const p = sanitizePack(data);
+        if (p) { cacheSet('pack.' + lang, data); packs[lang] = p; }
+      } catch (e) { /* resto con le stringhe che ho */ }
+    }
+  }
+
+  // Versione dello script pubblicata su GitHub (riga @version del file), oppure null.
+  async function fetchRemoteVersion() {
+    const text = await getText(SCRIPT_URL);
+    const m = /\/\/\s*@version\s+(\S+)/.exec(text);
+    return m && /^\d+(\.\d+){1,3}$/.test(m[1]) ? m[1] : null;
+  }
+  const cmpVersions = (a, b) => {
+    const x = a.split('.').map(Number), y = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      const d = (x[i] || 0) - (y[i] || 0);
+      if (d) return d > 0 ? 1 : -1;
+    }
+    return 0;
+  };
 
   const intlName = (code) => {
     try {
@@ -274,6 +327,16 @@
     }
     return 'en';
   }
+
+  // Con una versione nuova dello script la cache delle lingue si svuota: così le lingue aggiunte o corrette nel
+  // frattempo compaiono subito, senza aspettare le 24 ore.
+  (function resetCacheOnNewVersion() {
+    if (storeGet(CACHE_PREFIX + 'version') === VERSION) return;
+    try {
+      Object.keys(localStorage).filter((k) => k.indexOf(CACHE_PREFIX) === 0).forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* senza storage non c'è cache */ }
+    storeSet(CACHE_PREFIX + 'version', VERSION);
+  })();
 
   const storedLang = (() => { const v = storeGet(LANG_KEY); return v && LANG_CODE.test(v) ? v : null; })();
 
@@ -757,6 +820,33 @@
   }
 
   // ===================================================================
+  // Aggiornamento di lingue e script (pulsante del pannello)
+  // ===================================================================
+  // Rilegge subito le lingue da GitHub e controlla se c'è una versione nuova dello script. Lo script non si
+  // installa da solo: se c'è una versione nuova, dopo la tua conferma apre la pagina di installazione di
+  // Tampermonkey (l'indirizzo del file .user.js), dove confermi tu.
+  async function updateRun() {
+    ui.setStatus(M('upd_start'));
+    try {
+      await refreshLanguages();
+      ui.log(M('upd_langs_ok', available.map(langName).join(', ')));
+    } catch (e) {
+      ui.log(M('upd_langs_fail'));
+    }
+    ui.refreshLanguages();
+
+    let remote = null;
+    try { remote = await fetchRemoteVersion(); } catch (e) { remote = null; }
+    if (!remote) { ui.log(M('upd_script_fail')); return; }
+    if (cmpVersions(remote, VERSION) <= 0) { ui.log(M('upd_script_same', VERSION)); return; }
+    ui.log(M('upd_script_new', remote, VERSION));
+    const ok = await ui.confirm(M('upd_script_confirm', remote), M('upd_script_open'));
+    if (!ok) return;
+    window.open(SCRIPT_URL, '_blank', 'noopener');
+    ui.log(M('upd_script_opened'));
+  }
+
+  // ===================================================================
   // Pannello
   // ===================================================================
   const ui = (function buildPanel() {
@@ -790,8 +880,8 @@
       // Il testo del registro si può selezionare e copiare (Telegram disattiva la selezione sul resto della pagina).
       '.log,.status,.confirm .txt{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}',
       '.log{margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font:11px/1.4 ui-monospace,Consolas,monospace;background:#161a23;border-radius:6px;padding:6px}',
-      '.logbar{display:flex;justify-content:flex-end;margin-top:6px}',
-      '.copy{padding:4px 10px;font-size:12px}',
+      '.logbar{display:flex;justify-content:space-between;gap:6px;margin-top:6px}',
+      '.copy,.upd{padding:4px 10px;font-size:12px}',
       '.x{padding:2px 8px;background:transparent}',
       // Durante un\'operazione il pannello si riduce a stato + Stop e lascia passare i clic:
       // così non copre le righe della lista (sul telefono la lista occupa tutta la larghezza).
@@ -814,13 +904,13 @@
       '  </div>',
       '  <div class="confirm" hidden><div class="txt"></div><div class="btns"><button class="yes danger"></button><button class="no" data-i18n="btn_cancel"></button></div></div>',
       '  <pre class="log"></pre>',
-      '  <div class="logbar"><button class="copy" data-i18n="btn_copy"></button></div>',
+      '  <div class="logbar"><button class="upd" data-i18n="btn_update"></button><button class="copy" data-i18n="btn_copy"></button></div>',
       '</div>',
     ].join('');
 
     const $ = (s) => root.querySelector(s);
     const fab = $('.fab'), panel = $('.panel'), statusEl = $('.status'), logEl = $('.log');
-    const bDry = $('.dry'), bArch = $('.arch'), bDel = $('.del'), bStop = $('.stop'), bCopy = $('.copy');
+    const bDry = $('.dry'), bArch = $('.arch'), bDel = $('.del'), bStop = $('.stop'), bCopy = $('.copy'), bUpd = $('.upd');
     const inc = $('.inc'), confirmBox = $('.confirm'), confirmTxt = $('.confirm .txt'), bYes = $('.yes'), bNo = $('.no');
     const langSel = $('.lang');
     const entries = []; // righe del registro: {time, msg}; msg è un messaggio da tradurre al momento di mostrarlo
@@ -892,7 +982,7 @@
       },
       setStatus(msg) { statusMsg = msg; showStatus(); },
       setBusy(busy) {
-        bDry.disabled = bArch.disabled = bDel.disabled = busy;
+        bDry.disabled = bArch.disabled = bDel.disabled = bUpd.disabled = busy;
         bStop.disabled = !busy;
         if (busy) { panel.hidden = false; fab.hidden = true; } else { statusMsg = M('ready'); showStatus(); }
         setRunningUi(busy);
@@ -924,6 +1014,7 @@
         bDry.onclick = handlers.dry;
         bArch.onclick = handlers.archive;
         bDel.onclick = handlers.remove;
+        bUpd.onclick = handlers.update;
         bStop.onclick = () => { state.stop = true; statusMsg = M('stop_requested'); showStatus(); if (bNo.onclick) bNo.onclick(); };
       },
     };
@@ -976,5 +1067,6 @@
     dry: () => runTask(dryRun),
     archive: () => runTask(archiveRun),
     remove: () => runTask(deleteRun),
+    update: () => runTask(updateRun),
   });
 })();

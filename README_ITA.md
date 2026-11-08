@@ -9,7 +9,7 @@ Userscript per [Tampermonkey](https://www.tampermonkey.net/) che ripulisce la li
 - Pannello in **italiano, inglese o spagnolo**, a scelta. Altre lingue si aggiungono con un solo file nella cartella [`languages`](languages) (vedi "Aggiungere una lingua").
 - Funziona solo nel browser e non usa le API interne di Telegram: ripete i gesti che faresti a mano (menu contestuale, Archive, Select, Delete). Non invia i tuoi dati a nessun server: l'unica connessione è la lettura dei file di lingua da GitHub (vedi "Privacy").
 
-> **Stato: versione 0.4.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
+> **Stato: versione 0.4.1, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
 
 ## Installazione
 
@@ -44,6 +44,8 @@ La casella **Solo "Deleted Account"** decide quali chat tocca lo script. Spenta 
 
 **Lingua.** Il menu a tendina in alto nel pannello sceglie la **lingua del pannello e dei messaggi**. Le lingue proposte sono quelle dei file presenti nella cartella [`languages`](languages) del repository. La scelta viene ricordata dal browser; se non hai scelto niente si usa la lingua del browser (se c'è un file per quella lingua, altrimenti inglese). Cambia solo i testi dello script: la lingua di Telegram è un'altra cosa (vedi "Limiti noti"). Le lingue incluse sono italiano, inglese e spagnolo; la traduzione spagnola è stata scritta da Claude e non è stata rivista da un madrelingua: le correzioni sono benvenute con una pull request.
 
+**Aggiornamento.** Il pulsante **Aggiorna lingue/script** (sotto il registro) rilegge subito da GitHub l'elenco delle lingue e riscarica quella in uso, senza aspettare le 24 ore della cache, e controlla se esiste una versione nuova dello script. Se c'è, ti chiede conferma e apre la pagina di installazione di Tampermonkey, dove confermi tu: lo script non si installa mai da solo. Se Tampermonkey non propone l'installazione (succede su alcuni browser del telefono), usa **Install from URL** come nella sezione "Installazione". Inoltre, a ogni nuova versione dello script la cache delle lingue si svuota da sola.
+
 Mentre un'operazione è in corso il pannello si riduce a stato e Stop e lascia passare i clic, così non copre la lista (utile sul telefono, dove la lista occupa tutta la larghezza).
 
 ## Aggiungere una lingua
@@ -58,7 +60,7 @@ Per aggiungere una traduzione basta un file nella cartella [`languages`](languag
 
 Regole: solo testo semplice (niente HTML, viene mostrato com'è), massimo 600 caratteri per stringa, solo le chiavi presenti in `en.json`. I file che non rispettano le regole vengono ignorati in tutto o in parte, senza rompere lo script.
 
-L'elenco delle lingue e i file scaricati restano in cache nel browser per 24 ore, quindi una lingua nuova può comparire con un po' di ritardo. Per vederla subito: nella console della pagina di Telegram esegui `localStorage.removeItem('telegramJoinedCleaner.cache.list')` e ricarica.
+L'elenco delle lingue e i file scaricati restano in cache nel browser per 24 ore, quindi una lingua nuova può comparire con un po' di ritardo. Per vederla subito premi **Aggiorna lingue/script** nel pannello (la cache si svuota anche a ogni nuova versione dello script).
 
 Attenzione: questi file traducono il **pannello dello script**, non i testi di Telegram. Con Telegram in un'altra lingua l'avviso "joined Telegram" e le voci di menu cambiano e lo script non le riconosce (vedi "Limiti noti").
 
@@ -82,7 +84,7 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 
 ## Privacy
 
-Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatti. L'unica connessione che fa è verso GitHub, per leggere i file di lingua: l'elenco dei file di `languages` (`api.github.com`) e il file della lingua scelta (`raw.githubusercontent.com`). Le richieste non contengono cookie né l'indirizzo della pagina di Telegram. I file letti vengono controllati (solo testo, solo chiavi note, lunghezza limitata) e mostrati sempre come testo, mai come HTML. Se la rete è bloccata o GitHub non risponde, lo script funziona lo stesso in inglese (o nell'ultima lingua rimasta in cache).
+Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatti. L'unica connessione che fa è verso GitHub, per leggere i file di lingua: l'elenco dei file di `languages` (`api.github.com`) e il file della lingua scelta (`raw.githubusercontent.com`). Solo quando premi **Aggiorna lingue/script** legge anche il file dello script (sempre da `raw.githubusercontent.com`) per confrontarne la versione. Le richieste non contengono cookie né l'indirizzo della pagina di Telegram. I file letti vengono controllati (solo testo, solo chiavi note, lunghezza limitata) e mostrati sempre come testo, mai come HTML. Se la rete è bloccata o GitHub non risponde, lo script funziona lo stesso in inglese (o nell'ultima lingua rimasta in cache).
 
 ## Limiti noti
 
@@ -101,6 +103,7 @@ Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatt
 | Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto, registro sempre sulle righe recenti, scheda attiva, messaggio con zero chat, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto, pannello in inglese | 5 volte su 5 per ognuno dei 15 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 2 scenari |
 | Lingue, su pagina finta con rete simulata: elenco dei file della cartella (nomi non validi e cartelle ignorati), caricamento del file, stringhe mancanti in inglese, copia in cache di 24 ore (fresca e scaduta), senza rete, limite di GitHub, file sbagliati o malevoli (JSON rotto, troppo grande, HTML, segnaposto strani), lingua del browser (inglese e italiano), scelta ricordata, registro riscritto nella lingua nuova, inglese incorporato uguale a `languages/en.json` | 5 volte su 5 per ognuno dei 10 scenari. Provato anche che i test falliscono quando il difetto viene rimesso (controllo dei file spento) |
 | Pannello in spagnolo (`languages/es.json`, 71 chiavi): testi, Prova, Archivia, Cancella… e registro riscritto in un'altra lingua, su pagina finta | 5 volte su 5, con browser in inglese e in italiano. La qualità della traduzione non è verificata da un madrelingua |
+| Pulsante **Aggiorna lingue/script**, su pagina finta con rete simulata: lingua nuova che compare subito, testi della lingua riscaricati, versione nuova accettata (si apre la pagina di installazione) o rifiutata, script già aggiornato, rete assente (la cache resta com'è), versione non valida; cache svuotata quando cambia la versione dello script | 5 volte su 5 per ognuno dei 6 scenari. Provato anche che il test fallisce senza lo svuotamento della cache, con lo stesso sintomo (lingua nuova che non compare) |
 | Pulsante **Copia log** (con e senza l'API degli appunti, con errore) e stile che rende il registro selezionabile anche se la pagina disattiva la selezione | 5 volte su 5 per 2 scenari. La selezione con il dito sul telefono non è verificata |
 | Lettura di `raw.githubusercontent.com` e `api.github.com` dalla pagina di Telegram Web (nessun blocco di CSP o CORS), nel browser integrato di Claude | 1 volta, prima di creare la cartella `languages`: risposta 200 per `LICENSE` e per l'elenco dei file |
 | Archiviazione su Telegram Web K vero (con codice equivalente eseguito dalla console) | 100 su 100 e 38 su 38 |
