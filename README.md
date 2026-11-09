@@ -3,7 +3,8 @@
 
 # Telegram Joined Cleaner
 
-<img width="327" height="325" alt="Screenshot 2026-11-08 222559" src="https://github.com/user-attachments/assets/bdd3979c-9c3c-4202-a977-00d2c323ed65" />
+<img width="360" height="448" alt="Screenshot 2026-11-08 222559" src="https://github.com/user-attachments/assets/ade8c337-33b2-4cd2-98b1-76b871b631c2" />
+
 
 A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the chat list of **Telegram Web K** (`https://web.telegram.org/k/`): it removes the chats Telegram creates when a contact joins Telegram, i.e. the ones that only contain the "*name* joined Telegram" notice.
 
