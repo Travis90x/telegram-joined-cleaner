@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram Joined Cleaner
 // @namespace    https://github.com/Travis90x/telegram-joined-cleaner
-// @version      0.5.0
+// @version      0.5.1
 // @description  On Telegram Web K, archives (or, after confirmation, deletes) the chats that only contain the "... joined Telegram" notice.
 // @description:it  Su Telegram Web K archivia (o, dopo conferma, cancella) le chat che contengono solo l'avviso "... joined Telegram".
 // @author       Travis90x
@@ -21,7 +21,7 @@
   if (window.top !== window.self) return;
   if (window.__telegramJoinedCleaner) return;
 
-  const VERSION = '0.5.0';
+  const VERSION = '0.5.1';
 
   // ===================================================================
   // Testi di Telegram che lo script riconosce
@@ -319,15 +319,33 @@
   };
   const langName = (code) => (packs[code] && packs[code]._name) || intlName(code);
 
+  // Codici del browser che nella cartella languages hanno un nome diverso: il norvegese ("no", "nn") è nb, il
+  // vecchio "in" è id, il cinese si divide per scrittura (tradizionale a Taiwan, Hong Kong e Macao o con "hant").
+  const LANG_ALIASES = { no: 'nb', nn: 'nb', 'in': 'id' };
+  const ZH_TRADITIONAL_REGIONS = ['tw', 'hk', 'mo'];
+  function browserCandidates(lw) {
+    const parts = lw.split('-');
+    const out = [lw];
+    if (parts[0] === 'zh') {
+      const trad = parts.indexOf('hant') >= 0 || (parts.indexOf('hans') < 0 && ZH_TRADITIONAL_REGIONS.indexOf(parts[parts.length - 1]) >= 0);
+      out.push(trad ? 'zh-hant' : 'zh-hans');
+    }
+    if (LANG_ALIASES[parts[0]]) out.push(LANG_ALIASES[parts[0]]);
+    out.push(parts[0]);
+    return out;
+  }
+
   // Lingua che corrisponde a quella del browser (it-IT -> it-IT, poi it), altrimenti l'inglese.
   function pickByBrowser(list) {
     const wanted = navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [navigator.language || 'en'];
     for (const w of wanted) {
       const lw = String(w).toLowerCase();
-      const exact = list.find((c) => c.toLowerCase() === lw);
-      if (exact) return exact;
+      for (const cand of browserCandidates(lw)) {
+        const exact = list.find((c) => c.toLowerCase() === cand);
+        if (exact) return exact;
+      }
       const base = lw.split('-')[0];
-      const near = list.find((c) => c.toLowerCase() === base) || list.find((c) => c.toLowerCase().split('-')[0] === base);
+      const near = list.find((c) => c.toLowerCase().split('-')[0] === base);
       if (near) return near;
     }
     return 'en';
