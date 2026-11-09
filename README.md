@@ -9,10 +9,11 @@ A [Tampermonkey](https://www.tampermonkey.net/) userscript that cleans up the ch
 
 - **Archives** those chats (reversible).
 - **Deletes** the same chats (straight from the main list or from the archive), only when you ask and after a confirmation in the panel (permanent).
+- Works with **any Telegram language**: it reads phrases and menu entries from the language pack that Telegram Web K saves in the browser, with no translations to maintain (see "Telegram's language").
 - Panel in **Italian, English or Spanish**, your choice. More languages are added with a single file in the [`languages`](languages) folder (see "Adding a language").
 - It only runs in your browser and does not use Telegram's internal APIs: it repeats the gestures you would do by hand (context menu, Archive, Select, Delete). It does not send your data to any server: the only connection is reading the language files from GitHub (see "Privacy").
 
-> **Status: version 0.4.1, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
+> **Status: version 0.5.0, under testing.** The logic has been tested on a mock page that imitates Telegram Web K, and the **Dry run** (read-only) on the real Telegram; **Archive** and **Delete…** on the real Telegram are still to be completed (see "What is verified").
 
 <img width="369" height="800" alt="Anteprima" src="https://github.com/user-attachments/assets/52067e26-4d6a-4a06-8fe0-a3ffb0f77e45" />
 
@@ -46,7 +47,7 @@ The panel has four buttons:
 
 The **Only "Deleted Account"** checkbox decides which chats the script touches. Off (default): only chats with a name. On: only chats of deleted accounts. To handle both kinds, run the operation twice, once for each.
 
-**Log.** Below the buttons there is the message log: its text can be selected and copied, and the **Copy log** button copies the whole log to the clipboard (handy for pasting into a bug report). If you change language, the messages already in the log are rewritten in the new language too.
+**Log.** Below the buttons there is the message log: its text can be selected and copied, the **Copy log** button copies the whole log to the clipboard (handy for pasting into a bug report) and the **Clear log** button empties it. If you change language, the messages already in the log are rewritten in the new language too.
 
 **Language.** The drop-down at the top of the panel chooses the **language of the panel and of the messages**. The languages offered are the files in the repository's [`languages`](languages) folder. The choice is remembered by the browser; if you have not chosen anything, the browser language is used (if there is a file for that language, English otherwise). It only changes the script's own texts: Telegram's language is a separate matter (see "Known limitations"). The included languages are Italian, English and Spanish; the Spanish translation was written by Claude and has not been reviewed by a native speaker: corrections are welcome as a pull request.
 
@@ -68,7 +69,7 @@ Rules: plain text only (no HTML, it is shown as is), at most 600 characters per 
 
 The list of languages and the downloaded files are cached in the browser for 24 hours, so a new language may show up with some delay. To see it immediately press **Update languages/script** in the panel (the cache is also cleared with every new version of the script).
 
-Note: these files translate the **script's panel**, not Telegram's texts. With Telegram in another language the "joined Telegram" notice and the menu entries change and the script does not recognize them (see "Known limitations").
+These files translate the **script's panel**. Telegram's own texts (the "joined Telegram" notice, the menu entries) do not need translating here: the script reads them from Telegram's language pack (see "Telegram's language").
 
 ## How it recognizes an "empty" chat
 
@@ -76,9 +77,20 @@ A chat is touched only if **all** of these are true:
 
 - it is a chat with a user (positive numeric id, not a group or a channel);
 - the title is not empty;
-- the preview of the last message is exactly `<title> joined Telegram`.
+- the preview of the last message is exactly the phrase Telegram shows when a contact joins, with the chat title in place of the name: `<title> joined Telegram` in English, `<title> è ora su Telegram` in Italian, and so on in Telegram's language.
 
 The check looks **only at the preview of the last message**: chats are not opened one by one. It relies on an assumption (not verified) that a chat created by a join has no earlier messages.
+
+## Telegram's language
+
+Telegram Web K shows phrases and menu entries in the language chosen in its settings, and saves in the browser the pack with all its phrases in that language (IndexedDB `tweb-common`, store `session`, key `langPack`; it is there even before signing in). The script **reads** it (read-only) and takes the texts it needs: the phrase for a contact joining (`Chat.Service.PeerJoinedTelegram`, with the name at the start, in the middle or at the end depending on the language), *Archive*, *Unarchive*, *Select*, *Delete*, *Archived Chats*, *Deleted Account* and the plural forms of "N chats selected". So it works with any Telegram language, without translating anything by hand.
+
+- The English texts are always kept among the alternatives and act as a fallback.
+- The comparison ignores icons and punctuation and works with any alphabet (Latin, Cyrillic, Arabic...).
+- The title of the confirmation dialog ("Delete 38 chats" in English) is not compared word by word: it must contain the number of selected chats.
+- At every **Dry run** the log says which Telegram language was read, for example `Telegram language: it`. If the pack cannot be read it says `Telegram language not read: using the English texts`.
+- If you change Telegram's language while the page is open, the script re-reads the pack at every operation.
+- If reading is not possible (a browser without `indexedDB.databases()`, IndexedDB not answering within 3 seconds, changed data structure) the script uses the English texts: with Telegram in English it works as always, with another language it finds nothing and says so.
 
 ## Safety
 
@@ -90,11 +102,11 @@ The check looks **only at the preview of the last message**: chats are not opene
 
 ## Privacy
 
-The script does not send your data, your chats or your contacts' names to anyone. The only connection it makes is to GitHub, to read the language files: the list of files in `languages` (`api.github.com`) and the file of the chosen language (`raw.githubusercontent.com`). Only when you press **Update languages/script** does it also read the script file (again from `raw.githubusercontent.com`) to compare its version. The requests carry no cookies and not the address of the Telegram page. The files read are checked (text only, known keys only, limited length) and always shown as text, never as HTML. If the network is blocked or GitHub does not answer, the script still works in English (or in the last language left in the cache).
+The script does not send your data, your chats or your contacts' names to anyone. The only connection it makes is to GitHub, to read the language files: the list of files in `languages` (`api.github.com`) and the file of the chosen language (`raw.githubusercontent.com`). Only when you press **Update languages/script** does it also read the script file (again from `raw.githubusercontent.com`) to compare its version. The requests carry no cookies and not the address of the Telegram page. The files read are checked (text only, known keys only, limited length) and always shown as text, never as HTML. If the network is blocked or GitHub does not answer, the script still works in English (or in the last language left in the cache). For Telegram's language it reads from the browser, read-only, the language pack that Telegram Web K has already saved (IndexedDB `tweb-common`): it does not modify it and does not send it to anyone.
 
 ## Known limitations
 
-- **Telegram must be in English.** The "joined Telegram" notice and Telegram's menu entries (Archive, Select, Delete...) are compared with the English text; the language of the script's panel is unrelated. With Telegram in another language the script finds nothing and says so. To add a Telegram language, edit the `TEXTS` object at the top of the file with the exact strings read from the interface (Settings > Language).
+- **Telegram's language.** Telegram's texts are read from its language pack saved in the browser (see "Telegram's language"). Tested on the real Telegram (read-only): the pack of all 29 languages that Web K offers contains the needed texts, and the real interface in Italian and Simplified Chinese shows exactly those texts (menu, selection bar, three dots, join phrase). **Archive and Delete… with Telegram in a language other than English have not been run yet on the real Telegram.** It depends on how Telegram Web K saves its data: an update on their side may change it, and in that case the script goes back to the English texts.
 - **Languages other than English need GitHub at least once.** English is built into the script; the others are downloaded and then kept in the browser cache.
 - **It depends on Telegram Web K's internal names** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): a Telegram update can break it.
 - Telegram Web **K** only, not Web A (`/a/`).
@@ -106,8 +118,14 @@ The script does not send your data, your chats or your contacts' names to anyone
 | What | Result |
 | --- | --- |
 | Syntax (`node --check`) and language files check (`node tools/check-languages.js`) | ok |
-| Logic on a mock page (invented chats, headless Chrome): dry run, archiving, group/different preview left alone, only "Deleted Account", selective deletion with confirmation from archive and from main list, cancel, Stop, compact panel, log always on the latest lines, active tab, message with zero chats, per-run limit, stop after 3 errors, refusal with the archive open, panel in English | 5 times out of 5 for each of the 15 scenarios; in a narrow window (420 px, like a phone) 3 times out of 3 for 2 scenarios |
+| Logic on a mock page (invented chats, headless Chrome): dry run, archiving, group/different preview left alone, only "Deleted Account", selective deletion with confirmation from archive and from main list, cancel, Stop, compact panel, log always on the latest lines, active tab, message with zero chats, per-run limit, stop after 3 errors, refusal with the archive open, panel in English | 5 times out of 5 for each of the 17 scenarios; in a narrow window (420 px, like a phone) 3 times out of 3 for 2 scenarios |
 | Languages, on a mock page with a simulated network: list of the files in the folder (invalid names and folders ignored), loading the file, missing strings in English, 24-hour cache (fresh and stale), no network, GitHub rate limit, bad or malicious files (broken JSON, too big, HTML, odd placeholders), browser language (English and Italian), remembered choice, log rewritten in the new language, built-in English equal to `languages/en.json` | 5 times out of 5 for each of the 10 scenarios. Also checked that the tests fail when the defect is put back (file check switched off) |
+| Real Telegram with the owner's account (built-in browser, read-only): the language pack of **all 29 languages** offered by Web K was read and checked (keys present, a single placeholder in the join phrase, non-empty and distinct labels, plurals of "N chats selected" for N from 1 to 60); phrases with bidirectional isolation marks (Arabic, Persian) handled. In four languages (Arabic, German, Indonesian, Turkish) "chats selected" is not translated: Telegram shows English and the script recognizes it | 1 time per language |
+| Real Telegram in **Italian** and **Simplified Chinese** (real interface, read-only): the "Select", "Archive" and "Delete" entries (menu and three dots) match the pack's texts; the selection bar is recognized with 1-5 chats; chats with the join phrase are recognized (Italian: 44, of which 24 of deleted accounts, no other similar repeated phrase; Chinese: the 8 found in the loaded part of the list) | 1 time per language |
+| Real Telegram: the three dots of the selection bar **do not open with `.click()`**, only with the full click (pointer + mouse); the bar's "X" leaves the selection. The script now uses the full click and the "X" (also to leave the selection by itself if a deletion fails) | found on the real one; fix tested on the mock page, with a negative control that fails as seen on the real one |
+| Reading Telegram's language pack **for real** (Telegram Web login page, Claude's built-in browser): all the needed strings found in English and in Italian (for Italian, for example, the join phrase `%@ è ora su Telegram`, *Archivia*, *Estrai*, *Seleziona*, *Elimina*, *Account eliminato* and the plurals of "chat selezionate") | 1 time per language, read-only |
+| Telegram's language, on a mock page with a simulated IndexedDB: pack in Italian (with the real phrases), in Russian and in Arabic (invented: different alphabets, multi-form plurals, name in the middle of the phrase); Dry run, Archive, Delete… and "Only Deleted Account" with those languages; no pack; wrong pack; IndexedDB not answering (the panel does not hang) | 5 times out of 5 for each of the 6 scenarios. Also checked that the test fails with the ASCII-only comparison of 0.4.1 on Russian and Arabic |
+| **Clear log** button (empties the log, **Copy log** copies nothing on an empty log, button text in Italian, English and Spanish) | 5 times out of 5 |
 | Panel in Spanish (`languages/es.json`, 71 keys): texts, Dry run, Archive, Delete… and a log rewritten in another language, on a mock page | 5 times out of 5, with an English and an Italian browser. The quality of the translation has not been checked by a native speaker |
 | **Update languages/script** button, on a mock page with a simulated network: a new language showing up immediately, the language texts downloaded again, a newer version accepted (the install page opens) or declined, script already up to date, no network (the cache stays as it was), invalid version; cache cleared when the script version changes | 5 times out of 5 for each of the 6 scenarios. Also checked that the test fails without the cache clearing, with the same symptom (new language not showing up) |
 | **Copy log** button (with and without the clipboard API, with failure) and the style that makes the log selectable even when the page disables selection | 5 times out of 5 for 2 scenarios. Selecting with a finger on a phone is not verified |

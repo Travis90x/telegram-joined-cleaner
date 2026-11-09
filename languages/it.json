@@ -11,6 +11,7 @@
   "btn_cancel": "Annulla",
   "btn_copy": "Copia log",
   "btn_copied": "Copiato ✓",
+  "btn_clear": "Pulisci log",
   "copy_failed": "Non sono riuscito a copiare: seleziona il testo del registro a mano.",
   "btn_update": "Aggiorna lingue/script",
   "upd_start": "Controllo aggiornamenti…",
@@ -22,6 +23,8 @@
   "upd_script_confirm": "Aggiornare lo script alla versione {0}? Si apre la pagina di installazione di Tampermonkey, dove devi confermare.",
   "upd_script_open": "Apri la pagina di aggiornamento",
   "upd_script_opened": "Aperta la pagina di aggiornamento. Se Tampermonkey non la propone, usa \"Install from URL\" (vedi README).",
+  "tg_lang_pack": "Lingua di Telegram: {0} (i testi di Telegram sono letti dal suo pacchetto lingua).",
+  "tg_lang_default": "Lingua di Telegram non letta: uso i testi inglesi.",
   "lang_load_failed": "Non riesco a caricare la lingua \"{0}\": resto con quella attuale.",
   "stop_requested": "Stop richiesto…",
   "busy": "Un'operazione è già in corso.",
@@ -78,6 +81,6 @@
   "mode_named": "solo chat con nome",
   "mode_deleted": "solo \"Deleted Account\"",
   "dry_result": "Prova ({0}): {1} chat viste, {2} con solo \"joined\" ({3} con nome, {4} \"Deleted Account\"). Impostazione attuale: {5}. Verrebbero toccate: {6}. Non è stato modificato niente.",
-  "dry_nothing": "Nessuna chat \"solo joined\" in questa lista ({0} chat viste). Cause possibili: sono già archiviate (nella scheda \"All\" spariscono: prova la scheda \"Contacts\" o apri l'archivio) oppure Telegram non è in inglese (vedi README).",
+  "dry_nothing": "Nessuna chat \"solo joined\" in questa lista ({0} chat viste). Cause possibili: sono già archiviate (nella scheda \"All\" spariscono: prova la scheda \"Contacts\" o apri l'archivio) oppure lo script non è riuscito a leggere i testi di Telegram nella tua lingua (vedi README).",
   "dry_note": "Nota: nella scheda \"Contacts\" le chat già archiviate restano in lista e vengono contate."
 }

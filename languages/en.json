@@ -11,6 +11,7 @@
   "btn_cancel": "Cancel",
   "btn_copy": "Copy log",
   "btn_copied": "Copied ✓",
+  "btn_clear": "Clear log",
   "copy_failed": "Could not copy: select the log text by hand.",
   "btn_update": "Update languages/script",
   "upd_start": "Checking for updates…",
@@ -22,6 +23,8 @@
   "upd_script_confirm": "Update the script to version {0}? The Tampermonkey install page opens, where you must confirm.",
   "upd_script_open": "Open the update page",
   "upd_script_opened": "Update page opened. If Tampermonkey does not offer it, use \"Install from URL\" (see the README).",
+  "tg_lang_pack": "Telegram language: {0} (the texts of Telegram are read from its own language pack).",
+  "tg_lang_default": "Telegram language not read: using the English texts.",
   "lang_load_failed": "Cannot load the language \"{0}\": keeping the current one.",
   "stop_requested": "Stop requested…",
   "busy": "An operation is already running.",
@@ -78,6 +81,6 @@
   "mode_named": "named chats only",
   "mode_deleted": "only \"Deleted Account\"",
   "dry_result": "Dry run ({0}): {1} chats seen, {2} with only \"joined\" ({3} named, {4} \"Deleted Account\"). Current setting: {5}. Would be touched: {6}. Nothing was modified.",
-  "dry_nothing": "No \"joined-only\" chats in this list ({0} chats seen). Possible causes: they are already archived (they disappear from the \"All\" tab: try the \"Contacts\" tab or open the archive) or Telegram is not in English (see the README).",
+  "dry_nothing": "No \"joined-only\" chats in this list ({0} chats seen). Possible causes: they are already archived (they disappear from the \"All\" tab: try the \"Contacts\" tab or open the archive) or the script could not read the texts of Telegram in your language (see the README).",
   "dry_note": "Note: in the \"Contacts\" tab already archived chats stay in the list and are counted."
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Telegram Joined Cleaner
 // @namespace    https://github.com/Travis90x/telegram-joined-cleaner
-// @version      0.4.1
+// @version      0.5.0
 // @description  On Telegram Web K, archives (or, after confirmation, deletes) the chats that only contain the "... joined Telegram" notice.
 // @description:it  Su Telegram Web K archivia (o, dopo conferma, cancella) le chat che contengono solo l'avviso "... joined Telegram".
 // @author       Travis90x
@@ -21,28 +21,30 @@
   if (window.top !== window.self) return;
   if (window.__telegramJoinedCleaner) return;
 
-  const VERSION = '0.4.1';
+  const VERSION = '0.5.0';
 
   // ===================================================================
   // Testi di Telegram che lo script riconosce
-  // Telegram Web K li mostra nella lingua scelta dall'utente. L'unica
-  // lingua VERIFICATA è l'inglese. Per un'altra lingua bisogna aggiungere
-  // qui le stringhe esatte, dopo averle lette davvero dall'interfaccia.
+  // Telegram Web K mostra frasi e voci di menu nella lingua scelta dall'utente nelle sue impostazioni.
+  // Qui ci sono i testi INGLESI (gli unici provati a mano su Telegram vero): servono da riserva.
+  // Se Telegram ha salvato nel browser il proprio pacchetto lingua, lo script ne legge i testi della
+  // lingua in uso (vedi "Testi di Telegram letti dal suo pacchetto lingua") e li usa al posto di questi;
+  // quelli inglesi restano comunque tra le alternative.
   // (Non c'entra con la lingua del pannello dello script: vedi languages/.)
   // ===================================================================
-  const TEXTS = {
-    joinedSuffixes: [' joined Telegram'], // anteprima = titolo + suffisso
-    deletedAccount: 'Deleted Account',
-    archivedChats: 'Archived Chats',
-    menuArchive: 'Archive',
-    menuUnarchive: 'Unarchive',
-    menuSelect: 'Select',
-    menuDelete: 'Delete',
-    selectedBar: /^(\d+) chats? selected$/,
-    deletePopupTitle: (n) => 'Delete ' + n + ' chats',
-    deletePopupTitleSingle: /^Delete\b/i,
-    popupDeleteButton: 'Delete',
+  const DEFAULT_TEXTS = {
+    joined: [{ pre: '', post: ' joined Telegram' }], // anteprima = pre + titolo + post
+    deletedAccount: ['Deleted Account'],
+    archivedChats: ['Archived Chats'],
+    menuArchive: ['Archive'],
+    menuUnarchive: ['Unarchive'],
+    menuSelect: ['Select'],
+    menuDelete: ['Delete'],
+    popupDeleteButton: ['Delete'],
+    selectedBar: [/^(\d+) chats? selected$/], // confrontata con il testo già ripulito (vedi cleanText)
   };
+  let TEXTS = DEFAULT_TEXTS; // i testi in uso: quelli di Telegram nella sua lingua, se letti, altrimenti l'inglese
+  let telegramLang = { code: null, fromPack: false }; // da dove vengono i testi in uso
 
   const SETTINGS = {
     onlyDeletedAccounts: false, // casella nel pannello: false = solo chat con nome, true = solo "Deleted Account"
@@ -83,6 +85,7 @@
     btn_cancel: 'Cancel',
     btn_copy: 'Copy log',
     btn_copied: 'Copied ✓',
+    btn_clear: 'Clear log',
     copy_failed: 'Could not copy: select the log text by hand.',
     btn_update: 'Update languages/script',
     upd_start: 'Checking for updates…',
@@ -94,6 +97,8 @@
     upd_script_confirm: 'Update the script to version {0}? The Tampermonkey install page opens, where you must confirm.',
     upd_script_open: 'Open the update page',
     upd_script_opened: 'Update page opened. If Tampermonkey does not offer it, use "Install from URL" (see the README).',
+    tg_lang_pack: 'Telegram language: {0} (the texts of Telegram are read from its own language pack).',
+    tg_lang_default: 'Telegram language not read: using the English texts.',
     lang_load_failed: 'Cannot load the language "{0}": keeping the current one.',
     stop_requested: 'Stop requested…',
     busy: 'An operation is already running.',
@@ -150,7 +155,7 @@
     mode_named: 'named chats only',
     mode_deleted: 'only "Deleted Account"',
     dry_result: 'Dry run ({0}): {1} chats seen, {2} with only "joined" ({3} named, {4} "Deleted Account"). Current setting: {5}. Would be touched: {6}. Nothing was modified.',
-    dry_nothing: 'No "joined-only" chats in this list ({0} chats seen). Possible causes: they are already archived (they disappear from the "All" tab: try the "Contacts" tab or open the archive) or Telegram is not in English (see the README).',
+    dry_nothing: 'No "joined-only" chats in this list ({0} chats seen). Possible causes: they are already archived (they disappear from the "All" tab: try the "Contacts" tab or open the archive) or the script could not read the texts of Telegram in your language (see the README).',
     dry_note: 'Note: in the "Contacts" tab already archived chats stay in the list and are counted.',
   };
 
@@ -364,8 +369,12 @@
     const b = el.getBoundingClientRect();
     return b.width > 0 && b.height > 0 && b.bottom > 0 && b.top < innerHeight && b.right > 0 && b.left < innerWidth;
   };
-  // Le voci di menu iniziano con un carattere-icona non ASCII: lo tolgo prima di confrontare.
-  const asciiOnly = (s) => (s || '').replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+  // Le voci di menu iniziano con un'icona (un carattere speciale) e le frasi possono avere simboli e punteggiatura:
+  // prima di confrontare tengo solo lettere, numeri e spazi di qualsiasi alfabeto.
+  const cleanText = (s) => (s || '').replace(/[^\p{L}\p{M}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+  // Solo spazi e caratteri invisibili (per confrontare le anteprime, dove la punteggiatura conta).
+  const wsClean = (s) => (s || '').replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+  const asList = (x) => (Array.isArray(x) ? x : [x]);
 
   const jump = (el, top) => {
     try { el.scrollTo({ top, behavior: 'instant' }); } catch (e) { el.scrollTop = top; }
@@ -384,11 +393,12 @@
   // Attenzione: si basa solo sull'anteprima dell'ultimo messaggio.
   const isJoinedRow = (a) => {
     const t = rowTitle(a);
-    const s = rowPreview(a);
-    return /^\d+$/.test(rowId(a)) && t.length > 0 && TEXTS.joinedSuffixes.some((suf) => s === t + suf);
+    const s = wsClean(rowPreview(a));
+    return /^\d+$/.test(rowId(a)) && t.length > 0 && TEXTS.joined.some((j) => s === wsClean(j.pre + t + j.post));
   };
+  const isDeletedTitle = (t) => TEXTS.deletedAccount.indexOf(t) >= 0;
   // Con la casella spenta si trattano solo le chat con nome; accesa, solo quelle di account eliminati.
-  const isWantedTitle = (t) => (t === TEXTS.deletedAccount) === SETTINGS.onlyDeletedAccounts;
+  const isWantedTitle = (t) => isDeletedTitle(t) === SETTINGS.onlyDeletedAccounts;
   const isTargetRow = (a) => isJoinedRow(a) && isWantedTitle(rowTitle(a));
 
   // La lista in vista: deve essercene UNA sola, altrimenti non si procede.
@@ -399,8 +409,9 @@
   }
 
   function isArchiveOpen() {
+    const want = TEXTS.archivedChats.map(cleanText);
     return Array.from(document.querySelectorAll('span, div, h1, h2, h3')).some(
-      (el) => el.childElementCount === 0 && !el.closest('.btn-menu') && isShown(el) && asciiOnly(el.textContent) === TEXTS.archivedChats
+      (el) => el.childElementCount === 0 && !el.closest('.btn-menu') && isShown(el) && want.indexOf(cleanText(el.textContent)) >= 0
     );
   }
 
@@ -420,9 +431,117 @@
   const selectionCount = () => {
     const b = selectionBar();
     if (!b) return 0;
-    const m = TEXTS.selectedBar.exec(asciiOnly(b.textContent));
-    return m ? Number(m[1]) : 0;
+    const text = cleanText(b.textContent);
+    for (const re of TEXTS.selectedBar) {
+      const m = re.exec(text);
+      if (m) return Number(m[1]);
+    }
+    return 0;
   };
+
+  // ===================================================================
+  // Testi di Telegram letti dal suo pacchetto lingua
+  // Telegram Web K salva nel browser (IndexedDB "tweb-common", archivio "session", chiave "langPack") il pacchetto
+  // con tutte le sue frasi nella lingua scelta nelle impostazioni, anche prima del primo accesso. Da lì lo script
+  // prende i testi che gli servono (avviso "joined Telegram", Archive, Select, Delete...): così funziona con
+  // qualsiasi lingua di Telegram senza tradurli a mano. Si legge e basta, non si scrive niente e non si invia
+  // niente. Se la lettura non riesce (browser senza indexedDB.databases(), struttura cambiata...) restano i testi inglesi.
+  // ===================================================================
+  // In certi browser e contesti IndexedDB può non rispondere mai: la lettura ha un limite di tempo.
+  // Restituisce il pacchetto, null se non c'è o non si può leggere, undefined se non ha risposto in tempo.
+  function readTelegramLangPack() {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(undefined), IDB_TIMEOUT_MS);
+      readTelegramLangPackNow().then(
+        (v) => { clearTimeout(timer); resolve(v); },
+        () => { clearTimeout(timer); resolve(null); }
+      );
+    });
+  }
+
+  async function readTelegramLangPackNow() {
+    try {
+      if (!window.indexedDB || typeof indexedDB.databases !== 'function') return null;
+      const dbs = await indexedDB.databases();
+      if (!dbs.some((d) => d && d.name === 'tweb-common')) return null; // non lo creo io se non esiste
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('tweb-common');
+        req.onupgradeneeded = () => { try { req.transaction.abort(); } catch (e) { /* niente da fare */ } };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => reject(new Error('blocked'));
+      });
+      try {
+        if (!db.objectStoreNames.contains('session')) return null;
+        return await new Promise((resolve, reject) => {
+          const r = db.transaction('session', 'readonly').objectStore('session').get('langPack');
+          r.onsuccess = () => resolve(r.result || null);
+          r.onerror = () => reject(r.error);
+        });
+      } finally {
+        db.close();
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const IDB_TIMEOUT_MS = 3000;
+  const uniqueTexts = (arr) => Array.from(new Set(arr.filter((x) => typeof x === 'string' && x.trim())));
+  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Costruisce i testi in uso dal pacchetto lingua; null se il pacchetto non ha la forma attesa.
+  function textsFromPack(pack) {
+    if (!pack || !Array.isArray(pack.strings) || pack.strings.length < 100) return null;
+    const by = new Map();
+    // Il pacchetto contiene prima le frasi inglesi e poi quelle della lingua scelta: l'ultima occorrenza vince.
+    for (const s of pack.strings) if (s && typeof s.key === 'string') by.set(s.key, s);
+    const one = (key) => {
+      const s = by.get(key);
+      return s && typeof s.value === 'string' && s.value.trim() ? s.value.trim() : null;
+    };
+    const forms = (key) => {
+      const s = by.get(key);
+      return s ? ['zero_value', 'one_value', 'two_value', 'few_value', 'many_value', 'other_value'].map((f) => s[f]).filter((v) => typeof v === 'string' && v.trim()) : [];
+    };
+    const label = (key, fallback) => uniqueTexts([one(key)].concat(fallback));
+
+    const T = {
+      joined: DEFAULT_TEXTS.joined.slice(),
+      deletedAccount: label('HiddenName', DEFAULT_TEXTS.deletedAccount),
+      archivedChats: label('ArchivedChats', DEFAULT_TEXTS.archivedChats),
+      menuArchive: label('Archive', DEFAULT_TEXTS.menuArchive),
+      menuUnarchive: label('Unarchive', DEFAULT_TEXTS.menuUnarchive),
+      menuSelect: label('Message.Context.Select', DEFAULT_TEXTS.menuSelect),
+      menuDelete: label('Delete', DEFAULT_TEXTS.menuDelete),
+      popupDeleteButton: label('Delete', DEFAULT_TEXTS.popupDeleteButton),
+      selectedBar: [],
+    };
+    // "%@ joined Telegram": il nome può stare all'inizio, in mezzo o alla fine, a seconda della lingua.
+    const j = one('Chat.Service.PeerJoinedTelegram');
+    const m = j && /%(?:\d+\$)?[@s]/.exec(j);
+    if (m) T.joined.unshift({ pre: j.slice(0, m.index), post: j.slice(m.index + m[0].length) });
+    // "%d chat selected" / "%d chats selected": una forma per ogni plurale della lingua.
+    for (const f of forms('ChatsSelected')) {
+      const parts = f.split(/%(?:\d+\$)?d/);
+      if (parts.length === 2) T.selectedBar.push(new RegExp('^' + parts.map((p) => escapeRe(cleanText(p))).join('\\s*(\\d+)\\s*') + '$'));
+    }
+    T.selectedBar = T.selectedBar.concat(DEFAULT_TEXTS.selectedBar);
+    return T;
+  }
+
+  let lastPackSignature = null;
+  // Rilegge il pacchetto lingua di Telegram (la lingua può cambiare mentre la pagina è aperta) e aggiorna TEXTS.
+  async function refreshTexts() {
+    const pack = await readTelegramLangPack();
+    if (pack === undefined) return; // nessuna risposta in tempo: tengo i testi che ho e riprovo alla prossima operazione
+    const signature = pack ? [pack.lang_code, pack.version, pack.strings && pack.strings.length].join(':') : 'none';
+    if (signature === lastPackSignature) return;
+    lastPackSignature = signature;
+    const T = textsFromPack(pack);
+    if (T) { TEXTS = T; telegramLang = { code: String(pack.lang_code || '?'), fromPack: true }; }
+    else { TEXTS = DEFAULT_TEXTS; telegramLang = { code: null, fromPack: false }; }
+  }
 
   // ===================================================================
   // Menu
@@ -430,7 +549,11 @@
   const contextMenus = () => Array.from(document.querySelectorAll('.btn-menu.contextmenu')).filter((m) => m.classList.contains('active') && isShown(m));
   const activeMenus = () => Array.from(document.querySelectorAll('.btn-menu')).filter((m) => m.classList.contains('active') && isShown(m));
   const menuItems = (menus) => menus.flatMap((m) => Array.from(m.querySelectorAll('.btn-menu-item')).filter(isShown));
-  const byLabel = (items, label) => items.filter((i) => asciiOnly(i.textContent) === label);
+  // Voci di menu il cui testo (ripulito) è uno dei testi attesi; `labels` è un testo o un elenco di alternative.
+  const byLabel = (items, labels) => {
+    const want = asList(labels).map(cleanText);
+    return items.filter((i) => want.indexOf(cleanText(i.textContent)) >= 0);
+  };
 
   // Non si usa il tasto Esc: su Telegram Web K ha aperto la ricerca globale.
   async function closeMenus() {
@@ -457,10 +580,11 @@
       bubbles: true, cancelable: true, composed: true, view: window,
       clientX: r.x + Math.min(r.width / 2, 150), clientY: r.y + r.height / 2, button: 2, buttons: 2,
     }));
+    const want = asList(labels).map(cleanText);
     for (let i = 0; i < 25; i++) {
       await sleep(120);
       const items = menuItems(contextMenus());
-      if (items.some((it) => labels.includes(asciiOnly(it.textContent)))) return items;
+      if (items.some((it) => want.indexOf(cleanText(it.textContent)) >= 0)) return items;
     }
     return [];
   }
@@ -498,18 +622,18 @@
   // ===================================================================
   async function archiveRow(sc, row) {
     const id = rowId(row);
-    const items = await openMenuOn(row, [TEXTS.menuArchive, TEXTS.menuUnarchive]);
+    const items = await openMenuOn(row, [].concat(TEXTS.menuArchive, TEXTS.menuUnarchive));
     if (!items) return { ok: false, id, why: M('w_row_not_in_view') };
     const arch = byLabel(items, TEXTS.menuArchive);
     const unarch = byLabel(items, TEXTS.menuUnarchive);
     if (!arch.length && unarch.length) { await closeMenus(); return { skip: true, id }; }
-    if (arch.length !== 1) { await closeMenus(); return { ok: false, id, why: M('w_menu_item', TEXTS.menuArchive) }; }
+    if (arch.length !== 1) { await closeMenus(); return { ok: false, id, why: M('w_menu_item', TEXTS.menuArchive[0]) }; }
     arch[0].click();
     await sleep(1800);
     const still = sc.querySelector(rowSelector(id));
     if (!still) return { ok: true, id }; // nella scheda "All" la riga sparisce
     // nella scheda "Contacts" la riga resta: controllo che il menu ora offra "Unarchive"
-    const items2 = await openMenuOn(still, [TEXTS.menuArchive, TEXTS.menuUnarchive]);
+    const items2 = await openMenuOn(still, [].concat(TEXTS.menuArchive, TEXTS.menuUnarchive));
     const done = !!items2 && byLabel(items2, TEXTS.menuUnarchive).length === 1 && byLabel(items2, TEXTS.menuArchive).length === 0;
     await closeMenus();
     return done ? { ok: true, id } : { ok: false, id, why: M('w_state_unchanged') };
@@ -655,6 +779,33 @@
     return true;
   }
 
+  // Clic completo (pointer, mouse e click) su un pulsante: certi controlli di Telegram Web K, per esempio i tre puntini
+  // della barra di selezione, si aprono così e non con el.click() (verificato sul Telegram vero).
+  async function pressElement(el) {
+    const r = el.getBoundingClientRect();
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    const hit = document.elementFromPoint(cx, cy);
+    const target = hit && (hit === el || el.contains(hit)) ? hit : el;
+    for (const [t, C] of [['pointerdown', PointerEvent], ['mousedown', MouseEvent], ['pointerup', PointerEvent], ['mouseup', MouseEvent], ['click', MouseEvent]]) {
+      target.dispatchEvent(new C(t, {
+        bubbles: true, cancelable: true, composed: true, view: window, clientX: cx, clientY: cy, button: 0,
+        buttons: t === 'mouseup' || t === 'click' || t === 'pointerup' ? 0 : 1, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+      }));
+      await sleep(35);
+    }
+    await sleep(150);
+  }
+
+  // Esce dalla modalità selezione con la "X" della barra (button.close, verificata sul Telegram vero).
+  async function cancelSelection() {
+    const bar = selectionBar();
+    if (!bar) return true;
+    const x = bar.querySelector('button.close, .sidebar-close-button');
+    if (x) { await pressElement(x); await sleep(900); }
+    return !selectionBar();
+  }
+
   const isSelectedRow = (a) => /selected/.test(a.className);
 
   // Insieme degli id selezionati, leggendo tutta la lista.
@@ -680,9 +831,9 @@
     const want = new Set(ids);
     const first = await bringIntoView(sc, ids[0]);
     if (!first) return { ok: false, why: M('w_first_not_found') };
-    const items = await openMenuOn(first, [TEXTS.menuSelect]);
+    const items = await openMenuOn(first, TEXTS.menuSelect);
     const sel = items ? byLabel(items, TEXTS.menuSelect) : [];
-    if (sel.length !== 1) { await closeMenus(); return { ok: false, why: M('w_menu_item', TEXTS.menuSelect) }; }
+    if (sel.length !== 1) { await closeMenus(); return { ok: false, why: M('w_menu_item', TEXTS.menuSelect[0]) }; }
     sel[0].click();
     await sleep(900);
     if (selectionCount() < 1) return { ok: false, why: M('w_selection_off') };
@@ -716,21 +867,30 @@
     const more = Array.from(bar.querySelectorAll('.btn-menu-toggle')).filter(isShown)[0];
     if (!more) return { ok: false, why: M('w_more_missing') };
     await closeMenus();
-    more.click();
-    await sleep(800);
-    const del = byLabel(menuItems(activeMenus()), TEXTS.menuDelete);
-    if (del.length !== 1) { await closeMenus(); return { ok: false, why: M('w_menu_item', TEXTS.menuDelete) }; }
+    // I tre puntini si aprono con il clic completo; se non basta provo anche con .click()
+    let del = [];
+    for (const how of ['press', 'click']) {
+      if (how === 'press') await pressElement(more); else more.click();
+      for (let i = 0; i < 12 && !del.length; i++) {
+        await sleep(150);
+        del = byLabel(menuItems(activeMenus()), TEXTS.menuDelete);
+      }
+      if (del.length) break;
+      await closeMenus();
+    }
+    if (del.length !== 1) { await closeMenus(); return { ok: false, why: M('w_menu_item', TEXTS.menuDelete[0]) }; }
     del[0].click();
     await sleep(1000);
 
     const popups = Array.from(document.querySelectorAll('.popup')).filter(isShown);
     const popup = popups.find((p) => {
-      const title = asciiOnly((p.querySelector('.popup-title') || {}).textContent);
-      return n === 1 ? TEXTS.deletePopupTitleSingle.test(title) : title === TEXTS.deletePopupTitle(n);
+      // Il titolo ("Delete 38 chats" in inglese) cambia con la lingua: controllo che contenga il numero atteso.
+      const title = cleanText((p.querySelector('.popup-title') || {}).textContent);
+      return n === 1 || new RegExp('(^|\\D)' + n + '(\\D|$)').test(title);
     });
     if (!popup) return { ok: false, why: M('w_popup_missing') };
-    const btns = Array.from(popup.querySelectorAll('.popup-button, button')).filter(isShown).filter((b) => asciiOnly(b.textContent) === TEXTS.popupDeleteButton);
-    if (btns.length !== 1) return { ok: false, why: M('w_popup_btn', TEXTS.popupDeleteButton) };
+    const btns = byLabel(Array.from(popup.querySelectorAll('.popup-button, button')).filter(isShown), TEXTS.popupDeleteButton);
+    if (btns.length !== 1) return { ok: false, why: M('w_popup_btn', TEXTS.popupDeleteButton[0]) };
     btns[0].click();
 
     for (let i = 0; i < 40; i++) { // fino a 8 s
@@ -781,7 +941,9 @@
       else {
         consecutive++;
         ui.log(M('del_error', res.why));
-        if (selectionBar()) ui.log(M('del_selection_left'));
+        await closeMenus();
+        // esco io dalla selezione; solo se non ci riesco chiedo di farlo a mano
+        if (selectionBar() && !(await cancelSelection())) ui.log(M('del_selection_left'));
         if (consecutive >= SETTINGS.maxConsecutiveErrors || selectionBar()) { reason = M('r_after_error'); break; }
       }
       await sleep(2000);
@@ -808,10 +970,11 @@
     const locKey = inArchive ? 'loc_archive' : 'loc_main';
     const where = tab ? J(M(locKey), M('tab_suffix', tab)) : M(locKey);
     ui.setStatus(M('dry_status', where));
+    ui.log(telegramLang.fromPack ? M('tg_lang_pack', telegramLang.code) : M('tg_lang_default'));
     const rows = await scanList(sc);
     const all = Array.from(rows.values());
     const joined = all.filter((v) => v.joined);
-    const deletedAcc = joined.filter((v) => v.title === TEXTS.deletedAccount).length;
+    const deletedAcc = joined.filter((v) => isDeletedTitle(v.title)).length;
     const targets = joined.filter((v) => isWantedTitle(v.title)).length;
     const mode = M(SETTINGS.onlyDeletedAccounts ? 'mode_deleted' : 'mode_named');
     ui.log(M('dry_result', where, all.length, joined.length, joined.length - deletedAcc, deletedAcc, mode, targets));
@@ -880,8 +1043,10 @@
       // Il testo del registro si può selezionare e copiare (Telegram disattiva la selezione sul resto della pagina).
       '.log,.status,.confirm .txt{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}',
       '.log{margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;font:11px/1.4 ui-monospace,Consolas,monospace;background:#161a23;border-radius:6px;padding:6px}',
-      '.logbar{display:flex;justify-content:space-between;gap:6px;margin-top:6px}',
-      '.copy,.upd{padding:4px 10px;font-size:12px}',
+      '.logbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}',
+      '.copy,.upd,.clear{padding:4px 10px;font-size:12px}',
+      '.upd{flex:1 1 100%}',
+      '.clear,.copy{flex:1}',
       '.x{padding:2px 8px;background:transparent}',
       // Durante un\'operazione il pannello si riduce a stato + Stop e lascia passare i clic:
       // così non copre le righe della lista (sul telefono la lista occupa tutta la larghezza).
@@ -904,13 +1069,13 @@
       '  </div>',
       '  <div class="confirm" hidden><div class="txt"></div><div class="btns"><button class="yes danger"></button><button class="no" data-i18n="btn_cancel"></button></div></div>',
       '  <pre class="log"></pre>',
-      '  <div class="logbar"><button class="upd" data-i18n="btn_update"></button><button class="copy" data-i18n="btn_copy"></button></div>',
+      '  <div class="logbar"><button class="upd" data-i18n="btn_update"></button><button class="clear" data-i18n="btn_clear"></button><button class="copy" data-i18n="btn_copy"></button></div>',
       '</div>',
     ].join('');
 
     const $ = (s) => root.querySelector(s);
     const fab = $('.fab'), panel = $('.panel'), statusEl = $('.status'), logEl = $('.log');
-    const bDry = $('.dry'), bArch = $('.arch'), bDel = $('.del'), bStop = $('.stop'), bCopy = $('.copy'), bUpd = $('.upd');
+    const bDry = $('.dry'), bArch = $('.arch'), bDel = $('.del'), bStop = $('.stop'), bCopy = $('.copy'), bUpd = $('.upd'), bClear = $('.clear');
     const inc = $('.inc'), confirmBox = $('.confirm'), confirmTxt = $('.confirm .txt'), bYes = $('.yes'), bNo = $('.no');
     const langSel = $('.lang');
     const entries = []; // righe del registro: {time, msg}; msg è un messaggio da tradurre al momento di mostrarlo
@@ -1024,6 +1189,7 @@
     inc.onchange = () => { SETTINGS.onlyDeletedAccounts = inc.checked; };
     langSel.onchange = () => { api.setLang(langSel.value); };
     bCopy.onclick = copyLog;
+    bClear.onclick = () => { entries.length = 0; showLog(); };
 
     applyLang();
     document.body.appendChild(host);
@@ -1052,13 +1218,17 @@
   debugApi.getLang = () => lang;
   debugApi.getAvailable = () => available.slice();
   debugApi.ready = initLanguages();
+  debugApi.refreshTexts = refreshTexts;
+  debugApi.getTexts = () => TEXTS;
+  debugApi.getTelegramLang = () => telegramLang;
+  debugApi.textsReady = refreshTexts().catch(() => { /* resto con i testi inglesi */ });
 
   async function runTask(fn) {
     if (state.running) { ui.log(M('busy')); return; }
     state.running = true;
     state.stop = false;
     ui.setBusy(true);
-    try { await fn(); }
+    try { await refreshTexts(); await fn(); }
     catch (e) { ui.log(M('unexpected', e.message)); console.error(e); }
     finally { state.running = false; ui.setBusy(false); }
   }

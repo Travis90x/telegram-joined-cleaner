@@ -6,10 +6,11 @@ Userscript per [Tampermonkey](https://www.tampermonkey.net/) che ripulisce la li
 
 - **Archivia** quelle chat (reversibile).
 - **Cancella** le stesse chat (direttamente dalla lista principale o dall'archivio), solo se lo chiedi e dopo una conferma nel pannello (definitivo).
+- Funziona con **qualsiasi lingua di Telegram**: frasi e voci di menu le legge dal pacchetto lingua che Telegram Web K salva nel browser, senza traduzioni da mantenere (vedi "Lingua di Telegram").
 - Pannello in **italiano, inglese o spagnolo**, a scelta. Altre lingue si aggiungono con un solo file nella cartella [`languages`](languages) (vedi "Aggiungere una lingua").
 - Funziona solo nel browser e non usa le API interne di Telegram: ripete i gesti che faresti a mano (menu contestuale, Archive, Select, Delete). Non invia i tuoi dati a nessun server: l'unica connessione è la lettura dei file di lingua da GitHub (vedi "Privacy").
 
-> **Stato: versione 0.4.1, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
+> **Stato: versione 0.5.0, in collaudo.** La logica è stata provata su una pagina finta che imita Telegram Web K e la **Prova** (sola lettura) su Telegram vero; **Archivia** e **Cancella…** sul Telegram vero vanno ancora completate (vedi "Cosa è verificato").
 
 ## Installazione
 
@@ -40,7 +41,7 @@ Il pannello ha quattro pulsanti:
 
 La casella **Solo "Deleted Account"** decide quali chat tocca lo script. Spenta (default): solo le chat con un nome. Accesa: solo quelle di account eliminati. Per trattarle tutte, esegui l'operazione due volte, una per tipo.
 
-**Registro.** Sotto i pulsanti c'è il registro dei messaggi: il testo si può selezionare e copiare, e il pulsante **Copia log** copia tutto il registro negli appunti (comodo per incollarlo in una segnalazione). Se cambi lingua, anche i messaggi già scritti nel registro si riscrivono nella lingua nuova.
+**Registro.** Sotto i pulsanti c'è il registro dei messaggi: il testo si può selezionare e copiare, il pulsante **Copia log** copia tutto il registro negli appunti (comodo per incollarlo in una segnalazione) e il pulsante **Pulisci log** lo svuota. Se cambi lingua, anche i messaggi già scritti nel registro si riscrivono nella lingua nuova.
 
 **Lingua.** Il menu a tendina in alto nel pannello sceglie la **lingua del pannello e dei messaggi**. Le lingue proposte sono quelle dei file presenti nella cartella [`languages`](languages) del repository. La scelta viene ricordata dal browser; se non hai scelto niente si usa la lingua del browser (se c'è un file per quella lingua, altrimenti inglese). Cambia solo i testi dello script: la lingua di Telegram è un'altra cosa (vedi "Limiti noti"). Le lingue incluse sono italiano, inglese e spagnolo; la traduzione spagnola è stata scritta da Claude e non è stata rivista da un madrelingua: le correzioni sono benvenute con una pull request.
 
@@ -62,7 +63,7 @@ Regole: solo testo semplice (niente HTML, viene mostrato com'è), massimo 600 ca
 
 L'elenco delle lingue e i file scaricati restano in cache nel browser per 24 ore, quindi una lingua nuova può comparire con un po' di ritardo. Per vederla subito premi **Aggiorna lingue/script** nel pannello (la cache si svuota anche a ogni nuova versione dello script).
 
-Attenzione: questi file traducono il **pannello dello script**, non i testi di Telegram. Con Telegram in un'altra lingua l'avviso "joined Telegram" e le voci di menu cambiano e lo script non le riconosce (vedi "Limiti noti").
+Questi file traducono il **pannello dello script**. I testi di Telegram (l'avviso "joined Telegram", le voci di menu) non vanno tradotti qui: lo script li legge dal pacchetto lingua di Telegram (vedi "Lingua di Telegram").
 
 ## Come riconosce una chat "vuota"
 
@@ -70,9 +71,20 @@ Una chat viene toccata solo se **tutte** queste condizioni sono vere:
 
 - è una chat con un utente (id numerico positivo, non un gruppo o un canale);
 - il titolo non è vuoto;
-- l'anteprima dell'ultimo messaggio è esattamente `<titolo> joined Telegram`.
+- l'anteprima dell'ultimo messaggio è esattamente la frase che Telegram mostra quando un contatto si iscrive, con il titolo della chat al posto del nome: in inglese `<titolo> joined Telegram`, in italiano `<titolo> è ora su Telegram`, e così via nella lingua di Telegram.
 
 Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non vengono aperte una per una. Si parte dall'ipotesi (non verificata) che una chat creata da un'iscrizione non abbia messaggi precedenti.
+
+## Lingua di Telegram
+
+Telegram Web K mostra frasi e voci di menu nella lingua scelta nelle sue impostazioni, e salva nel browser il pacchetto con tutte le sue frasi in quella lingua (IndexedDB `tweb-common`, archivio `session`, chiave `langPack`; c'è anche prima di accedere). Lo script lo **legge** (sola lettura) e ne prende i testi che gli servono: la frase dell'iscrizione di un contatto (`Chat.Service.PeerJoinedTelegram`, con il nome all'inizio, in mezzo o alla fine a seconda della lingua), *Archive*, *Unarchive*, *Select*, *Delete*, *Archived Chats*, *Deleted Account* e le forme del plurale di "N chat selezionate". Così funziona con qualsiasi lingua di Telegram, senza tradurre niente a mano.
+
+- I testi inglesi restano sempre tra le alternative e fanno da riserva.
+- Il confronto ignora icone e punteggiatura e funziona con qualsiasi alfabeto (latino, cirillico, arabo...).
+- Il titolo della finestra di conferma ("Delete 38 chats" in inglese) non è confrontato parola per parola: deve contenere il numero di chat selezionate.
+- A ogni **Prova** il registro dice quale lingua di Telegram è stata letta, per esempio `Lingua di Telegram: it`. Se il pacchetto non si legge dice `Lingua di Telegram non letta: uso i testi inglesi`.
+- Se cambi la lingua di Telegram a pagina aperta, lo script rilegge il pacchetto a ogni operazione.
+- Se la lettura non è possibile (browser senza `indexedDB.databases()`, IndexedDB che non risponde entro 3 secondi, struttura dei dati cambiata) lo script usa i testi inglesi: con Telegram in inglese funziona come sempre, con un'altra lingua non trova niente e lo dice.
 
 ## Sicurezza
 
@@ -84,11 +96,11 @@ Il controllo guarda **solo l'anteprima dell'ultimo messaggio**: le chat non veng
 
 ## Privacy
 
-Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatti. L'unica connessione che fa è verso GitHub, per leggere i file di lingua: l'elenco dei file di `languages` (`api.github.com`) e il file della lingua scelta (`raw.githubusercontent.com`). Solo quando premi **Aggiorna lingue/script** legge anche il file dello script (sempre da `raw.githubusercontent.com`) per confrontarne la versione. Le richieste non contengono cookie né l'indirizzo della pagina di Telegram. I file letti vengono controllati (solo testo, solo chiavi note, lunghezza limitata) e mostrati sempre come testo, mai come HTML. Se la rete è bloccata o GitHub non risponde, lo script funziona lo stesso in inglese (o nell'ultima lingua rimasta in cache).
+Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatti. L'unica connessione che fa è verso GitHub, per leggere i file di lingua: l'elenco dei file di `languages` (`api.github.com`) e il file della lingua scelta (`raw.githubusercontent.com`). Solo quando premi **Aggiorna lingue/script** legge anche il file dello script (sempre da `raw.githubusercontent.com`) per confrontarne la versione. Le richieste non contengono cookie né l'indirizzo della pagina di Telegram. I file letti vengono controllati (solo testo, solo chiavi note, lunghezza limitata) e mostrati sempre come testo, mai come HTML. Se la rete è bloccata o GitHub non risponde, lo script funziona lo stesso in inglese (o nell'ultima lingua rimasta in cache). Per la lingua di Telegram legge dal browser, in sola lettura, il pacchetto lingua che Telegram Web K ha già salvato (IndexedDB `tweb-common`): non lo modifica e non lo invia a nessuno.
 
 ## Limiti noti
 
-- **Telegram deve essere in inglese.** L'avviso "joined Telegram" e le voci di menu di Telegram (Archive, Select, Delete...) sono confrontati con il testo inglese; la lingua del pannello dello script non c'entra. Con Telegram in un'altra lingua lo script non trova niente e lo dice. Per aggiungere una lingua di Telegram bisogna modificare l'oggetto `TEXTS` in cima al file, con le stringhe esatte lette dall'interfaccia (Impostazioni > Language).
+- **Lingua di Telegram.** I testi di Telegram si leggono dal suo pacchetto lingua salvato nel browser (vedi "Lingua di Telegram"). Provato su Telegram vero (in sola lettura): il pacchetto di tutte le 29 lingue che Web K offre contiene i testi che servono, e l'interfaccia reale in italiano e in cinese semplificato mostra esattamente quei testi (menu, barra di selezione, tre puntini, frase d'iscrizione). **Archivia e Cancella… con Telegram in una lingua diversa dall'inglese non sono stati ancora eseguiti su Telegram vero.** Dipende da come Telegram Web K salva i dati: un suo aggiornamento può cambiarlo, e in quel caso lo script torna ai testi inglesi.
 - **Le lingue diverse dall'inglese richiedono GitHub almeno una volta.** L'inglese è incorporato nello script; le altre si scaricano e poi restano in cache nel browser.
 - **Dipende dai nomi interni di Telegram Web K** (`.chatlist-parts`, `.btn-menu-item`, `.popup`...): un aggiornamento di Telegram può romperlo.
 - Solo Telegram Web **K**, non Web A (`/a/`).
@@ -100,8 +112,14 @@ Lo script non invia a nessuno i tuoi dati, le tue chat o i nomi dei tuoi contatt
 | Cosa | Esito |
 | --- | --- |
 | Sintassi (`node --check`) e controllo dei file di lingua (`node tools/check-languages.js`) | ok |
-| Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto, registro sempre sulle righe recenti, scheda attiva, messaggio con zero chat, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto, pannello in inglese | 5 volte su 5 per ognuno dei 15 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 2 scenari |
+| Logica su pagina finta (chat inventate, headless Chrome): prova, archiviazione, gruppo/anteprima diversa non toccati, solo "Deleted Account", cancellazione selettiva con conferma da archivio e da lista principale, annulla, Stop, pannello compatto, registro sempre sulle righe recenti, scheda attiva, messaggio con zero chat, limite per giro, stop dopo 3 errori, rifiuto con archivio aperto, pannello in inglese | 5 volte su 5 per ognuno dei 17 scenari; in finestra stretta (420 px, come un telefono) 3 volte su 3 per 2 scenari |
 | Lingue, su pagina finta con rete simulata: elenco dei file della cartella (nomi non validi e cartelle ignorati), caricamento del file, stringhe mancanti in inglese, copia in cache di 24 ore (fresca e scaduta), senza rete, limite di GitHub, file sbagliati o malevoli (JSON rotto, troppo grande, HTML, segnaposto strani), lingua del browser (inglese e italiano), scelta ricordata, registro riscritto nella lingua nuova, inglese incorporato uguale a `languages/en.json` | 5 volte su 5 per ognuno dei 10 scenari. Provato anche che i test falliscono quando il difetto viene rimesso (controllo dei file spento) |
+| Telegram vero con l'account del proprietario (browser integrato, sola lettura): letto e controllato il pacchetto lingua di **tutte le 29 lingue** offerte da Web K (chiavi presenti, un solo segnaposto nella frase d'iscrizione, etichette non vuote e diverse tra loro, plurali di "N chat selezionate" per N da 1 a 60); frasi con segni di isolamento bidirezionale (arabo, persiano) gestite. In quattro lingue (arabo, tedesco, indonesiano, turco) "chat selezionate" non è tradotto: Telegram mostra l'inglese e lo script lo riconosce | 1 volta per lingua |
+| Telegram vero in **italiano** e in **cinese semplificato** (interfaccia reale, sola lettura): le voci "Seleziona", "Archivia" ed "Elimina" (menu e tre puntini) coincidono con i testi del pacchetto; la barra di selezione è riconosciuta con 1-5 chat; le chat con la frase d'iscrizione sono riconosciute (italiano: 44, di cui 24 di account eliminati, nessun'altra frase ripetuta simile; cinese: le 8 trovate nella parte di lista caricata) | 1 volta per lingua |
+| Telegram vero: i tre puntini della barra di selezione **non si aprono con `.click()`**, solo con il clic completo (pointer + mouse); la "X" della barra esce dalla selezione. Lo script ora usa il clic completo e la "X" (anche per uscire da solo dalla selezione se una cancellazione fallisce) | trovato dal vero; correzione provata su pagina finta, con controllo negativo che fallisce come visto sul vero |
+| Lettura del pacchetto lingua di Telegram **dal vero** (pagina di accesso di Telegram Web, browser integrato di Claude): trovate tutte le stringhe che servono in inglese e in italiano (per l'italiano, per esempio, la frase dell'iscrizione `%@ è ora su Telegram`, *Archivia*, *Estrai*, *Seleziona*, *Elimina*, *Account eliminato* e i plurali di "chat selezionate") | 1 volta per lingua, sola lettura |
+| Lingua di Telegram, su pagina finta con un IndexedDB simulato: pacchetto in italiano (con le frasi vere), in russo e in arabo (inventati: alfabeti diversi, plurali a più forme, nome in mezzo alla frase); Prova, Archivia, Cancella… e "Solo Deleted Account" con quelle lingue; nessun pacchetto; pacchetto sbagliato; IndexedDB che non risponde (il pannello non si blocca) | 5 volte su 5 per ognuno dei 6 scenari. Provato anche che il test fallisce con il confronto solo ASCII della 0.4.1 su russo e arabo |
+| Pulsante **Pulisci log** (svuota il registro, **Copia log** non copia niente a registro vuoto, testo del pulsante in italiano, inglese e spagnolo) | 5 volte su 5 |
 | Pannello in spagnolo (`languages/es.json`, 71 chiavi): testi, Prova, Archivia, Cancella… e registro riscritto in un'altra lingua, su pagina finta | 5 volte su 5, con browser in inglese e in italiano. La qualità della traduzione non è verificata da un madrelingua |
 | Pulsante **Aggiorna lingue/script**, su pagina finta con rete simulata: lingua nuova che compare subito, testi della lingua riscaricati, versione nuova accettata (si apre la pagina di installazione) o rifiutata, script già aggiornato, rete assente (la cache resta com'è), versione non valida; cache svuotata quando cambia la versione dello script | 5 volte su 5 per ognuno dei 6 scenari. Provato anche che il test fallisce senza lo svuotamento della cache, con lo stesso sintomo (lingua nuova che non compare) |
 | Pulsante **Copia log** (con e senza l'API degli appunti, con errore) e stile che rende il registro selezionabile anche se la pagina disattiva la selezione | 5 volte su 5 per 2 scenari. La selezione con il dito sul telefono non è verificata |
